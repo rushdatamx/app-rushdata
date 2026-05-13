@@ -2,6 +2,8 @@ import "server-only";
 import { supabaseServer } from "@/lib/supabase/ssr";
 import { verifySession } from "@/lib/dal";
 
+export type POStatus = "pending" | "partial" | "fulfilled" | "cancelled";
+
 export type MonthPoint = {
   monthStart: string;
   poCount: number;
@@ -38,6 +40,8 @@ export type RecentPO = {
   unitsReceived: number;
   fillRate: number | null;
   value: number;
+  pendingValue: number;
+  leadTimeDays: number | null;
   lineCount: number;
 };
 
@@ -50,11 +54,22 @@ export type POOverview = {
     avgFillRate: number | null;
     last30dValue: number;
     last30dCount: number;
+    pendingValue: number;
+    avgLeadTimeDays: number | null;
+    activePOs: number;
   };
   monthly: MonthPoint[];
   topStores: TopStore[];
   topProducts: TopProduct[];
   recent: RecentPO[];
+  recentFilteredCount: number;
+  recentTotalCount: number;
+};
+
+export type POFilters = {
+  status?: POStatus;
+  periodDays?: number;
+  search?: string;
 };
 
 function toNum(v: unknown): number {
@@ -63,11 +78,18 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export async function loadPOOverview(): Promise<POOverview> {
+function daysBetween(a: string, b: string): number | null {
+  const ta = new Date(a + "T00:00:00").getTime();
+  const tb = new Date(b + "T00:00:00").getTime();
+  if (Number.isNaN(ta) || Number.isNaN(tb)) return null;
+  return Math.round((tb - ta) / (24 * 3600 * 1000));
+}
+
+export async function loadPOOverview(filters: POFilters = {}): Promise<POOverview> {
   const { orgId } = await verifySession();
   const db = await supabaseServer();
 
-  const [monthlyRes, topStoresRes, topProductsRes, recentRes] = await Promise.all([
+  const [monthlyRes, topStoresRes, topProductsRes, allRecentRes] = await Promise.all([
     db.rpc("fn_po_monthly", { p_org_id: orgId }),
     db.rpc("fn_po_top_stores", { p_org_id: orgId, p_limit: 8 }),
     db.rpc("fn_po_top_products", { p_org_id: orgId, p_limit: 10 }),
@@ -78,13 +100,13 @@ export async function loadPOOverview(): Promise<POOverview> {
       )
       .eq("org_id", orgId)
       .order("order_date", { ascending: false })
-      .limit(15),
+      .limit(200),
   ]);
 
   if (monthlyRes.error) throw new Error(`fn_po_monthly: ${monthlyRes.error.message}`);
   if (topStoresRes.error) throw new Error(`fn_po_top_stores: ${topStoresRes.error.message}`);
   if (topProductsRes.error) throw new Error(`fn_po_top_products: ${topProductsRes.error.message}`);
-  if (recentRes.error) throw new Error(`recent POs: ${recentRes.error.message}`);
+  if (allRecentRes.error) throw new Error(`recent POs: ${allRecentRes.error.message}`);
 
   const monthly: MonthPoint[] = (
     (monthlyRes.data as Array<Record<string, unknown>>) ?? []
@@ -118,26 +140,52 @@ export async function loadPOOverview(): Promise<POOverview> {
     value: toNum(r.value),
   }));
 
-  const recent: RecentPO[] = (
-    (recentRes.data as Array<Record<string, unknown>>) ?? []
+  const allRecent: RecentPO[] = (
+    (allRecentRes.data as Array<Record<string, unknown>>) ?? []
   ).map((r) => {
     const ordered = toNum(r.total_units_ordered);
     const received = toNum(r.total_units_received);
+    const orderDate = (r.order_date as string) ?? "";
+    const expected = (r.expected_delivery_date as string) ?? null;
+    const value = toNum(r.total_value);
     return {
       id: String(r.id),
       poNumber: (r.po_number as string) ?? null,
-      orderDate: (r.order_date as string) ?? "",
-      expectedDelivery: (r.expected_delivery_date as string) ?? null,
+      orderDate,
+      expectedDelivery: expected,
       status: (r.status as string) ?? "—",
       unitsOrdered: ordered,
       unitsReceived: received,
       fillRate: ordered > 0 ? received / ordered : null,
-      value: toNum(r.total_value),
+      value,
+      pendingValue: ordered > 0 ? (value * (ordered - received)) / ordered : 0,
+      leadTimeDays: expected ? daysBetween(orderDate, expected) : null,
       lineCount: 0,
     };
   });
 
-  // line counts per recent PO (one extra query, small batch)
+  // apply filters in memory (small N) to derive `recent` view
+  const searchLower = filters.search?.trim().toLowerCase() ?? "";
+  const periodCutoff =
+    filters.periodDays != null
+      ? new Date(Date.now() - filters.periodDays * 24 * 3600 * 1000)
+          .toISOString()
+          .slice(0, 10)
+      : null;
+
+  const recentFiltered = allRecent.filter((r) => {
+    if (filters.status && r.status !== filters.status) return false;
+    if (periodCutoff && r.orderDate && r.orderDate < periodCutoff) return false;
+    if (searchLower) {
+      const hay = `${r.poNumber ?? ""} ${r.id}`.toLowerCase();
+      if (!hay.includes(searchLower)) return false;
+    }
+    return true;
+  });
+
+  const recent = recentFiltered.slice(0, 20);
+
+  // line counts for the recent view
   if (recent.length > 0) {
     const ids = recent.map((r) => r.id);
     const linesRes = await db
@@ -153,7 +201,7 @@ export async function loadPOOverview(): Promise<POOverview> {
     }
   }
 
-  // totals
+  // totals from monthly (histórico completo)
   const totalsAcc = monthly.reduce(
     (acc, m) => {
       acc.poCount += m.poCount;
@@ -168,22 +216,28 @@ export async function loadPOOverview(): Promise<POOverview> {
   const avgFillRate =
     totalsAcc.unitsOrdered > 0 ? totalsAcc.unitsReceived / totalsAcc.unitsOrdered : null;
 
-  // last-30d value/count: sum monthly buckets that fall within last 30 days proxy
-  // (más preciso usar fechas individuales, hacemos query corta)
-  const last30Res = await db
-    .from("purchase_orders")
-    .select("total_value,id", { count: "exact" })
-    .eq("org_id", orgId)
-    .gte(
-      "order_date",
-      new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10)
-    );
+  // pending value (lo que debe el retailer) — sobre todo el universo allRecent
+  const pendingValue = allRecent.reduce((a, r) => a + r.pendingValue, 0);
+  const activePOs = allRecent.filter(
+    (r) => r.status === "pending" || r.status === "partial"
+  ).length;
 
-  const last30dValue = (last30Res.data ?? []).reduce(
-    (acc, r) => acc + toNum((r as Record<string, unknown>).total_value),
-    0
-  );
-  const last30dCount = last30Res.count ?? (last30Res.data?.length ?? 0);
+  // lead time promedio sobre OCs que tienen expected
+  const leadTimes = allRecent
+    .map((r) => r.leadTimeDays)
+    .filter((d): d is number => d != null && d >= 0 && d <= 90);
+  const avgLeadTimeDays =
+    leadTimes.length === 0
+      ? null
+      : leadTimes.reduce((a, b) => a + b, 0) / leadTimes.length;
+
+  // last-30d value/count
+  const cutoff30 = new Date(Date.now() - 30 * 24 * 3600 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const recent30 = allRecent.filter((r) => r.orderDate >= cutoff30);
+  const last30dValue = recent30.reduce((a, r) => a + r.value, 0);
+  const last30dCount = recent30.length;
 
   return {
     totals: {
@@ -191,10 +245,15 @@ export async function loadPOOverview(): Promise<POOverview> {
       avgFillRate,
       last30dValue,
       last30dCount,
+      pendingValue,
+      avgLeadTimeDays,
+      activePOs,
     },
     monthly,
     topStores,
     topProducts,
     recent,
+    recentFilteredCount: recentFiltered.length,
+    recentTotalCount: allRecent.length,
   };
 }

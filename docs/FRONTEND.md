@@ -1,384 +1,374 @@
 # FRONTEND — Sistema de diseño RushData
 
-> Estilo decidido: **Handle/Savio (data-dense)**, light mode primario con soporte dark opcional. Plus Jakarta Sans para UI, JetBrains Mono para números/códigos. Inspiración secundaria: Linear, Vercel dashboard, Notion.
+> **Lenguaje:** Handle/Savio data-dense, light mode, charcoal primary + emerald success. **shadcn/ui** sobre **Tailwind v4** + **Plus Jakarta Sans** (UI) + **JetBrains Mono** (números). Charts con **Recharts** vía shadcn `chart`.
+
+Última revisión: 2026-05-13 · Mantén este doc cuando agregues vistas o cambies tokens.
 
 ---
 
-## Filosofía visual
+## 1 · Filosofía
 
-1. **Información antes que decoración.** Cada pixel pelea por su lugar. Números grandes y legibles, gráficas pequeñas e inline.
-2. **Jerarquía por tamaño y peso, no por color.** El color es señal (verde/ámbar/rojo), no estética.
-3. **Espacio en blanco generoso a nivel macro, denso a nivel micro.** Las cards respiran entre sí; dentro de la card la info es densa.
-4. **Monospace para números.** Tipografía tabular alinea columnas automáticamente.
-5. **Transitions sutiles, no animaciones.** Hover = 100ms cambio de color. Sin "bounce", sin "fade-up" en cada elemento.
-6. **No ilustraciones, no emojis en UI.** Iconos lucide-react, monocromáticos.
-
----
-
-## Stack frontend
-
-```json
-{
-  "framework": "Next.js 15 (App Router)",
-  "styling": "Tailwind CSS",
-  "components": "shadcn/ui",
-  "charts": "Tremor (primary) + Recharts (fallback)",
-  "icons": "lucide-react",
-  "fonts": ["Plus Jakarta Sans", "JetBrains Mono"],
-  "data": "Supabase JS client (@supabase/ssr)",
-  "forms": "react-hook-form + zod",
-  "tables": "@tanstack/react-table",
-  "state": "React Server Components + URL state (nuqs)",
-  "deployment": "Vercel"
-}
-```
+1. **Información antes que decoración.** Cada pixel pelea. Números grandes, charts pequeños inline, copy minimal.
+2. **Jerarquía por tamaño y peso, no por color.** Color = señal (verde/ámbar/rojo). No es estética.
+3. **Cada vista responde una pregunta KAM.** Antes de diseñar, pregunta: *"¿qué hace el usuario con esto a las 8am?"*. Si no hay respuesta clara → la vista no merece existir.
+4. **Monospace para números.** `font-mono tabular-nums` alinea columnas y comunica "esto es dato, no copy".
+5. **Transitions sutiles.** Hover 150-200ms de color. Cero bounce, fade-up, scale.
+6. **Sin emojis en UI** (excepto los del filtro de status para ayudar a escanear). Iconos lucide-react monocromáticos, `strokeWidth={1.75-2}`.
 
 ---
 
-## Tokens de diseño
+## 2 · Stack y dependencias clave
 
-### Colores (light mode)
-
-```css
---background: #FFFFFF;
---surface: #FAFAF9;           /* cards background */
---surface-hover: #F4F4F3;
---border: #E7E5E4;
---border-strong: #D6D3D1;
---foreground: #0C0A09;        /* texto principal */
---muted: #57534E;             /* texto secundario */
---muted-strong: #292524;
---subtle: #A8A29E;            /* texto terciario */
-
-/* Accent (rushdata teal-blue) */
---accent: #0F766E;            /* teal-700 */
---accent-hover: #0D5E58;
---accent-soft: #CCFBF1;       /* badges */
-
-/* Semánticos */
---success: #15803D;
---success-soft: #DCFCE7;
---warning: #B45309;
---warning-soft: #FEF3C7;
---danger: #B91C1C;
---danger-soft: #FEE2E2;
-```
-
-### Colores (dark mode — opcional v1.1)
-
-```css
---background: #0C0A09;
---surface: #1C1917;
---surface-hover: #292524;
---border: #292524;
---foreground: #FAFAF9;
---muted: #A8A29E;
---accent: #14B8A6;            /* teal-500 más vivo en dark */
-```
-
-### Tipografía
-
-```css
---font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
---font-mono: 'JetBrains Mono', 'SF Mono', monospace;
-
-/* Escalas */
---text-display: 32px / 1.1 / -0.02em;   /* KPI principal */
---text-h1: 24px / 1.2 / -0.01em;
---text-h2: 18px / 1.3 / -0.005em;
---text-h3: 14px / 1.4 / 0;
---text-body: 13px / 1.5 / 0;
---text-small: 12px / 1.4 / 0;
---text-tiny: 11px / 1.3 / 0.02em;        /* labels uppercase */
---text-number-lg: 28px mono;             /* big KPI numbers */
---text-number-md: 18px mono;
---text-number-sm: 13px mono;             /* en tablas */
-```
-
-### Espaciado
-
-Base 4px. Usar Tailwind defaults: `space-1` (4), `space-2` (8), `space-3` (12), `space-4` (16), `space-6` (24), `space-8` (32).
-
-### Radio
-
-```css
---radius-sm: 4px;
---radius-md: 6px;
---radius-lg: 8px;
---radius-card: 8px;    /* default cards */
-```
-
-### Sombras
-
-Mínimas. Bordes hacen el trabajo.
-```css
---shadow-card: 0 1px 2px rgba(0,0,0,0.04);
---shadow-popover: 0 4px 12px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
-```
+- **Next.js 16** (App Router, RSC default) — `searchParams` y `params` son `Promise<...>`, siempre await
+- **React 19** + **Tailwind v4** (con `@theme inline`) + **TypeScript 5**
+- **shadcn/ui** (New York style, neutral base) en `src/components/ui/*` — NO editar directamente, regenerar con `npx shadcn@latest add <component>`
+- **Recharts 3** wrappeado en `chart.tsx` (shadcn)
+- **lucide-react** para iconos
+- **@supabase/ssr** para cliente server con RLS por JWT
 
 ---
 
-## Layout principal
+## 3 · Tokens de color
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ ▣ rushdata    [HEB ▼]              ⌘K     🔔   Mario P.  [Admin]│
-├──────────┬──────────────────────────────────────────────────────┤
-│          │                                                      │
-│  Home    │         CONTENIDO PRINCIPAL                          │
-│  Sugerido│                                                      │
-│  Tiendas │         (max-width: 1440, padding 32)                │
-│  Productos                                                      │
-│  OC      │                                                      │
-│          │                                                      │
-│  ─────   │                                                      │
-│  Ingesta │                                                      │
-│  Equipo  │                                                      │
-│  Ajustes │                                                      │
-│          │                                                      │
-└──────────┴──────────────────────────────────────────────────────┘
-   220px              flex-1
-```
+Definidos en `src/app/globals.css`. **No hardcodear hex en componentes** — siempre usar las classes/vars.
 
-### Sidebar
+### Paleta semántica
 
-- Width 220px, fija, scroll independiente
-- Sticky top, full height
-- Background `--surface`, border-right
-- Items con icono 16px + label 13px
-- Active state: fondo `--accent-soft`, texto `--accent`
-- Padding vertical 6px, horizontal 10px
-
-### Topbar
-
-- Height 56px, sticky, background `--background` + border-bottom
-- Left: logo (text-only "rushdata" en mono) + selector cadena
-- Center: command palette trigger (⌘K) — botón texto con teclas
-- Right: notificaciones + avatar dropdown
-
----
-
-## Las 4 vistas del MVP
-
-### 1. Home — "Hoy"
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Inicio · HEB                                       2026-05-12  │
-│                                                                 │
-│ ┌─────────────────────────────────────────────────────────────┐ │
-│ │ VENTA PERDIDA POTENCIAL ESTA SEMANA                         │ │
-│ │                                                             │ │
-│ │  $48,320 MXN                                  ▲ +12% vs P04 │ │
-│ │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━                            │ │
-│ │  12 tiendas × 4 SKUs en riesgo                              │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│ ┌────────────────┐ ┌────────────────┐ ┌────────────────┐       │
-│ │ SUGERIDOS      │ │ QUIEBRES       │ │ FILL RATE      │       │
-│ │ 47 pendientes  │ │ 14 activos     │ │ 87% promedio   │       │
-│ │ $235k sugerido │ │ 8 críticos     │ │ ▼ -3pts        │       │
-│ │ [Ver todos →]  │ │ [Ver todos →]  │ │ [Ver OC →]     │       │
-│ └────────────────┘ └────────────────┘ └────────────────┘       │
-│                                                                 │
-│ ACCIONABLES PRIORITARIOS                                        │
-│ ┌─────────────────────────────────────────────────────────────┐ │
-│ │ #  Tienda          SKU           DDI  Sugerido    $ Riesgo │ │
-│ │ 1  HEB Punta Norte Papa Fuego 45g  2  420 pzs    $ 8,400  │ │
-│ │ 2  HEB Cumbres     Papa Sal 340g   0  240 pzs    $ 5,760  │ │
-│ │ 3  HEB Galerías    Papa Jal 45g    4  420 pzs    $ 4,200  │ │
-│ │ ...                                                         │ │
-│ │ [Ver todos los 47 →]                                       │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│ TENDENCIA SELL-OUT (último periodo)                             │
-│ ┌─────────────────────────────────────────────────────────────┐ │
-│ │  Sparkline 8 semanas + barra ingresos por SKU              │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 2. Sugeridos
-
-Tabla principal con:
-- Filtros sticky en top: Cadena · Tienda · Producto · Razón · Status
-- Columnas: Tienda · Producto · DDI · Stock · Velocity · Sugerido (uds/cajas) · $ Riesgo · Confianza · Acciones
-- Row expandible: muestra gráfica de inventario+venta 30 días
-- Bulk actions: marcar como enviado, exportar Excel
-- Toggle: "Solo críticos" / "Todos"
-
-### 3. Tiendas
-
-Grid de cards por tienda:
-```
-┌───────────────────────────────┐
-│ HEB Punta Norte         #4521 │
-│ Monterrey, NL                 │
-│ ─────────────────────────     │
-│  18  SKUs activos             │
-│   3  quiebres   ⚠            │
-│  $42,310 venta P04           │
-│  84% fill rate ▼              │
-└───────────────────────────────┘
-```
-
-Click → detail con todos los SKUs de esa tienda + timeline.
-
-### 4. Productos
-
-Lista de los 18 productos Delikos en HEB. Cada uno con:
-- Venta acumulada periodo
-- # tiendas activas / # con stockout
-- Sparkline tendencia
-- Click → heatmap tienda × semana
-
-### 5. (Bonus) OC / Fill rate
-
-Tabla de OCs con su fill rate, drill-down por tienda.
-
----
-
-## Componentes clave (shadcn + custom)
-
-### KPICard
-
-```tsx
-interface KPICardProps {
-  label: string;              // "VENTA PERDIDA POTENCIAL"
-  value: string;              // "$48,320 MXN"
-  unit?: string;
-  delta?: { value: string; direction: 'up' | 'down' };
-  subtitle?: string;
-  variant?: 'default' | 'danger' | 'success';
-  href?: string;              // si es clickeable
-}
-```
-
-Tamaño grande → display en home. Tamaño compacto → en cards de drilldown.
-
-### DataTable
-
-Custom sobre `@tanstack/react-table`:
-- Columnas numéricas en mono, right-aligned
-- Sort por click en header
-- Row hover muestra acciones laterales
-- Pagination minimal (`<` `1 de 12` `>`)
-- Density toggle (cómoda / compacta)
-
-### Sparkline
-
-Mini SVG line chart, 80×24px, sin ejes, color según trend.
-
-### SeverityBadge
-
-```tsx
-<SeverityBadge level="critical" />  // rojo "Crítico"
-<SeverityBadge level="high" />       // ámbar "Alto"
-<SeverityBadge level="medium" />     // gris "Medio"
-```
-
-### ConfidenceDot
-
-Punto coloreado pequeño (●) indicando confidence del sugerido.
-
----
-
-## Iconos
-
-`lucide-react`, stroke 1.5, tamaño 16px default.
-
-Mapping:
-- Home → `LayoutDashboard`
-- Sugeridos → `ShoppingCart`
-- Tiendas → `Store`
-- Productos → `Package`
-- OC → `FileText`
-- Ingesta → `Database`
-- Equipo → `Users`
-- Ajustes → `Settings`
-- Notificaciones → `Bell`
-- Buscar → `Search`
-
----
-
-## Estados especiales
-
-### Loading
-
-- Skeleton boxes (no spinners) que respeten el shape final
-- Color skeleton: `--surface-hover`
-
-### Empty state
-
-```
-┌─────────────────────────────────────────────┐
-│                                             │
-│           [Icon 32px muted]                 │
-│                                             │
-│      Aún no hay sugeridos                   │
-│   Se generan automáticamente cada noche.    │
-│                                             │
-│        [Recalcular ahora →]                 │
-│                                             │
-└─────────────────────────────────────────────┘
-```
-
-### Error
-
-Banner rojo top, no modal. Toast para errores transitorios (use sonner).
-
----
-
-## Responsive
-
-MVP es **desktop-first**. Mobile = "información reducida" no "full app".
-
-Breakpoints:
-- `< 768px`: Mobile = solo Home con KPIs apilados + sugeridos top 10. Sidebar → drawer.
-- `768-1280`: Tablet, sidebar colapsable.
-- `> 1280`: Desktop full.
-
----
-
-## Performance no-negociable
-
-- TTFB < 200ms en Home (Vercel Edge + Supabase pooler)
-- Páginas data-heavy usan Server Components con `revalidate: 60`
-- Tablas grandes virtualizan con `@tanstack/react-virtual`
-- Imágenes: solo logos, SVG inline
-
----
-
-## Skills de diseño a aplicar
-
-En cada sesión de UI, invocar:
-- **`/frontend-design`** para review y mejoras visuales
-- **`/tailwind-css-patterns`** para componentes complejos
-- **`/simplify`** después de implementar features grandes
-
----
-
-## Bibliotecas justificadas (no agregar sin razón)
-
-| Necesidad | Librería | Por qué |
+| Token | HSL | Uso |
 |---|---|---|
-| Tablas complejas | `@tanstack/react-table` | Headless, sort/filter built-in |
-| Charts | `tremor` | Hecho para dashboards data-dense |
-| Forms | `react-hook-form` + `zod` | Performance + validación typed |
-| Toasts | `sonner` | Default shadcn, sin config |
-| Command palette | `cmdk` | Default shadcn |
-| Date pickers | shadcn `Calendar` + `Popover` | Sin librería extra |
-| State derivada del URL | `nuqs` | Filtros que sobreviven refresh |
+| `--primary` | `240 10% 6%` | Charcoal casi negro · CTAs, sticky bars, dots de status sano |
+| `--background` | `0 0% 100%` | Fondo principal |
+| `--foreground` | `240 10% 4%` | Texto principal |
+| `--muted` | `240 5% 96%` | Card backgrounds suaves, tablas header |
+| `--muted-foreground` | `240 4% 46%` | Texto secundario |
+| `--border` | `240 6% 90%` | Dividers, card borders |
+| `--destructive` | `0 72% 51%` | Errores, quiebres críticos |
+| `--ring` | `240 10% 6%` | Focus ring |
+
+### Paleta de chart (`--chart-1` … `--chart-5`)
+
+| Var | Color | Uso típico |
+|---|---|---|
+| `--chart-1` | emerald `158 64% 40%` | Datos positivos (venta capturada, top SKU, sano) |
+| `--chart-2` | rose `0 72% 51%` | Datos negativos (venta perdida, quiebres) |
+| `--chart-3` | amber `38 92% 50%` | Atención (DDI bajo, fill rate medio) |
+| `--chart-4` | sky `217 91% 60%` | Comparación (pedido vs recibido = sky vs emerald) |
+| `--chart-5` | violet `271 81% 56%` | Categorías secundarias |
+
+### Estados de severidad (badges)
+
+Convención fija en TODA la app. Si la cambias, busca y reemplaza:
+
+```tsx
+critical: "bg-rose-100 text-rose-700"     // 🔴 DDI ≤ 1 · 3+ quiebres
+high:     "bg-amber-100 text-amber-800"   // 🟠 DDI ≤ 3
+medium:   "bg-amber-50 text-amber-700"    // 🟡 DDI ≤ 7
+low:      "bg-emerald-50 text-emerald-700" // 🟢 DDI > 7
+```
+
+### Reglas de tone en KPIs
+
+Cuando un KPI tenga "tono" (success/warning/danger), aplica esta tabla:
+
+```tsx
+TONE = {
+  default: { value: "text-foreground", chip: "bg-muted text-muted-foreground" },
+  danger:  { value: "text-rose-700",   chip: "bg-rose-100 text-rose-700" },
+  success: { value: "text-emerald-700",chip: "bg-emerald-100 text-emerald-700" },
+  warning: { value: "text-amber-700",  chip: "bg-amber-100 text-amber-700" },
+}
+```
 
 ---
 
-## Anti-patrones a evitar
+## 4 · Tipografía
 
-- ❌ Cards con gradientes
-- ❌ Sombras grandes / glassmorphism
-- ❌ Animaciones "bounce" o "fade-in" en lista de elementos
-- ❌ Iconos colorinches o ilustraciones decorativas
-- ❌ "Hero" image en home
-- ❌ Modales gigantes para tareas comunes (preferir side panel)
-- ❌ Tabs dentro de tabs
-- ❌ Botones genéricos sin verbo (`Submit`, `OK`) — usar acción específica (`Generar sugeridos`)
+| Uso | Class | Ejemplo |
+|---|---|---|
+| H1 página | `text-3xl lg:text-4xl font-semibold tracking-tight` | "Bienvenido, Mario" |
+| H2 sección (CardTitle) | `text-base` (shadcn default) | "Accionables prioritarios" |
+| Label uppercase | `text-[10px] uppercase tracking-wider text-muted-foreground font-medium` | "VENTA 30D" |
+| Valor grande KPI | `font-mono tabular-nums text-2xl lg:text-3xl font-semibold tracking-tight` | "$1,234,567" |
+| Valor hero | `font-mono tabular-nums text-3xl lg:text-4xl font-semibold tracking-tight` | (mismo, más grande) |
+| Body | `text-sm` o `text-xs` | Subtitles, descriptions |
+| Tabular cell num | `font-mono tabular-nums` | Toda celda numérica |
+| Muted | `text-muted-foreground` | Sub-info, secondary |
+
+**Regla:** todo número que se compara visualmente debe ser `font-mono tabular-nums`. Texto descriptivo va en `text-sm` o `text-xs`.
+
+---
+
+## 5 · El patrón "página estándar"
+
+Toda vista de listado sigue esta estructura. Replícala para nuevas pestañas.
+
+```
+┌──────────────────────────────────────────┐
+│ Header (h1 + subtitle + acción opc.)     │
+├──────────────────────────────────────────┤
+│ Hero Card (grid lg:5)                    │
+│  ├─ col-span-3: Chart + KPI principal    │
+│  └─ col-span-2: 4 KPI sub-blocks         │
+├──────────────────────────────────────────┤
+│ Filter bar (URL state)                   │
+│  └─ "Mostrando X de Y" debajo            │
+├──────────────────────────────────────────┤
+│ Vista principal: Tabla | Grid            │
+└──────────────────────────────────────────┘
+```
+
+### Hero card — anatomía
+
+`<Card className="p-0 gap-0 overflow-hidden">` con `grid grid-cols-1 lg:grid-cols-5`:
+
+- **Izquierda (col-span-3, p-6, lg:border-r):**
+  - Mini label uppercase + descripción una línea
+  - Valor grande mono
+  - Chart 180-260px de altura
+- **Derecha (col-span-2):** `grid grid-cols-1 sm:grid-cols-2 divide-x divide-y` con 4 `KpiBlock`s.
+  - Cada KpiBlock: label uppercase + icon chip + valor + sub. Si tone="danger"/"success" colorea valor + chip.
+  - Si el KpiBlock lleva a otra ruta, envuélvelo en `<Link>` con `hover:bg-muted/40 transition-colors` (ej. en `/tiendas` el "Top tienda" lleva al detail).
+
+### Filter bar — convención URL state
+
+Cada filtro escribe un search param. **Param nulo cuando es default** (no `?status=all`, sino sin el param).
+
+| Ruta | Params soportados |
+|---|---|
+| `/` | `period` (7d/30d/90d), `chain`, `cur` (MXN/USD) |
+| `/sugeridos` | `reason`, `severity` (critical), `cluster`, `q` |
+| `/tiendas` | `cluster`, `region`, `status` (critical/warning/healthy), `q`, `view` (grid/table) |
+| `/productos` | `cat`, `status` (star/risk/dormant), `q`, `view` (grid/table) |
+| `/oc` | `status`, `period` (30/90/365), `q` |
+
+Patrón del client component:
+
+```tsx
+const router = useRouter();
+const pathname = usePathname();
+const sp = useSearchParams();
+const [isPending, startTransition] = useTransition();
+
+const updateParams = (patch: Record<string, string | null>) => {
+  const params = new URLSearchParams(sp?.toString() ?? "");
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === null || v === "" || v === "all") params.delete(k);
+    else params.set(k, v);
+  }
+  const qs = params.toString();
+  startTransition(() => router.push(qs ? `${pathname}?${qs}` : pathname));
+};
+```
+
+Para search input: `useState` local + `useEffect` con `setTimeout(300)` para debounce.
+
+### Tabla shadcn — convenciones
+
+```tsx
+<Card className="p-0 gap-0 overflow-hidden">
+  <CardHeader className="px-6 py-4 border-b">
+    <CardTitle className="text-base">…</CardTitle>
+    <CardDescription>…</CardDescription>
+  </CardHeader>
+  <Table>
+    <TableHeader>
+      <TableRow className="bg-muted/30 hover:bg-muted/30">
+        <TableHead className="pl-6">…</TableHead>
+        <TableHead className="text-right pr-6">…</TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      {rows.map(r => (
+        <TableRow key={r.id} className="group">
+          <TableCell className="pl-6">
+            <Link className="block hover:text-foreground/80">
+              {name}
+              <ArrowUpRight className="opacity-0 group-hover:opacity-100" />
+            </Link>
+          </TableCell>
+          <TableCell className="text-right pr-6 font-mono tabular-nums font-semibold">
+            {fmtMXN(r.value)}
+          </TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  </Table>
+</Card>
+```
+
+**Reglas:**
+- Primera celda: `pl-6`. Última celda: `pr-6`. Las demás default (`p-2` shadcn).
+- Header con `bg-muted/30` y `hover:bg-muted/30` (evita hover propio).
+- Filas con `group` para revelar `ArrowUpRight` en hover.
+- Toda celda numérica: `text-right font-mono tabular-nums`. Si es la métrica clave de la fila, `font-semibold`.
+- Quiebres / valores negativos: `text-rose-700 font-semibold`.
+
+### Grid cards — convenciones
+
+`<Card className="p-0 gap-0 overflow-hidden hover:border-foreground/20 transition-colors h-full">` envuelto en `<Link>` con `focus:outline-none focus:ring-2 focus:ring-ring`.
+
+Estructura:
+1. Header (border-b): nombre + status dot + cluster badge
+2. Body grid 2x2 con métricas
+3. Footer (border-t, bg-muted/20): status badge + métrica secundaria
+
+---
+
+## 6 · Convenciones retail (no-obvio del código)
+
+### Status de tienda (`storeStatus()` en `TiendasGrid.tsx`)
+- **critical:** `stockouts >= 3` → 🔴
+- **warning:** `stockouts >= 1` → 🟡
+- **healthy:** `stockouts === 0` → 🟢
+
+### Status de producto (`statusOf()` en `productos/page.tsx`)
+- **star:** `revenue30d >= cutoff` donde cutoff = revenue del SKU en posición top 20% → ⭐
+- **risk:** `storesWithStockout > 0` → 🔴
+- **dormant:** `units30d === 0 && revenue30d === 0` → 💤
+- **normal:** todo lo demás → 🟢
+
+### Severidad de DDI (`ddiSeverity()`, idéntica en todos los archivos)
+- `ddi <= 1` → critical
+- `ddi <= 3` → high
+- `ddi <= 7` → medium
+- `ddi > 7` → low
+
+### Fill rate de OC
+- `>= 95%` → success (verde)
+- `90-95%` → warning (amarillo)
+- `< 90%` → danger (rojo + icon `AlertTriangle`)
+
+### Concentración top 3 SKUs
+- Umbral warning: `> 60%` (riesgo de dependencia)
+
+### Trend semanal (productos)
+- `|delta| < 2%` → estable (gray `Minus` icon)
+- `delta > 0` → ↑ verde
+- `delta < 0` → ↓ rojo
+
+**Si cambias un umbral, busca el helper en todos los archivos** — están copiados, no abstraídos en una sola función.
+
+---
+
+## 7 · Server actions y revalidación
+
+Patrón en `src/app/sugeridos/actions.ts`:
+
+```ts
+"use server";
+import { revalidatePath } from "next/cache";
+
+export async function markSuggestionsSent(ids: string[]) {
+  const { orgId, role } = await verifySession();
+  if (role === "viewer") return { ok: false, error: "Sin permisos" };
+
+  const db = await supabaseServer({ allowSetCookies: true });
+  const { error, count } = await db.from("…").update({…}).in("id", ids);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/sugeridos");
+  revalidatePath("/");                 // si afecta home
+  return { ok: true, updated: count };
+}
+```
+
+**Reglas:**
+- Siempre `verifySession()` primero
+- Siempre check de role (`viewer` no muta)
+- `supabaseServer({ allowSetCookies: true })` cuando se va a escribir
+- `revalidatePath` de todas las rutas que se ven afectadas
+- Devolver `{ ok: true | false, ... }` para que el client maneje el toast
+
+---
+
+## 8 · Loading skeletons y not-found
+
+Componentes en `src/components/shared/PageSkeletons.tsx`:
+- `HeaderSkeleton`, `HeroSkeleton`, `FiltersSkeleton`, `TableSkeleton`, `GridSkeleton`, `StripSkeleton`
+
+Cada ruta tiene su `loading.tsx` que compone estos skeletons en la estructura de la página real (Next 16 los muestra automáticamente durante navegación).
+
+`not-found.tsx` por ruta cuando hace falta UX específica:
+- `/tiendas/[id]/not-found.tsx`, `/productos/[id]/not-found.tsx` — back link + icon + CTA
+- `/not-found.tsx` global — fallback
+
+---
+
+## 9 · Estructura de archivos
+
+```
+web/src/
+├── app/
+│   ├── layout.tsx              # SidebarProvider + AppSidebar + AppTopbar shell
+│   ├── page.tsx                # Home (dashboard)
+│   ├── loading.tsx             # Home skeleton
+│   ├── not-found.tsx           # 404 global
+│   ├── globals.css             # Tokens + body font fix
+│   ├── sugeridos/
+│   │   ├── page.tsx
+│   │   ├── actions.ts          # server action markSuggestionsSent
+│   │   └── loading.tsx
+│   ├── tiendas/
+│   │   ├── page.tsx
+│   │   ├── loading.tsx
+│   │   └── [id]/
+│   │       ├── page.tsx
+│   │       ├── loading.tsx
+│   │       └── not-found.tsx
+│   └── productos/, oc/         # mismo patrón
+├── components/
+│   ├── ui/                     # shadcn (no editar a mano)
+│   ├── layout/                 # AppSidebar, AppTopbar
+│   ├── home/                   # HeroChart, SubKpiStrip, PriorityTable, etc.
+│   ├── sugeridos/              # SugeridosHero/Filters/Table
+│   ├── tiendas/                # TiendasHero/Filters/Grid/Table + StoreDetailHero
+│   ├── productos/              # ProductosHero/Filters/Grid/Table + ProductDetailHero + MiniSparkline
+│   ├── oc/                     # OCHero/Filters/TopLists/RecentTable
+│   └── shared/                 # PageSkeletons
+└── lib/
+    ├── format.ts               # fmtMXN, fmtNumber, fmtDecimal, fmtPct
+    ├── utils.ts                # cn() solo
+    ├── dal.ts                  # verifySession, getSessionSoft
+    ├── supabase/ssr.ts
+    └── queries/                # un archivo por vista (home.ts, suggestions.ts, …)
+```
+
+---
+
+## 10 · Playbook: agregar una vista nueva
+
+Pasos para agregar `/[nueva-vista]` siguiendo el patrón:
+
+1. **Define la pregunta KAM** que responde la vista. Si no hay → para.
+2. **Crea la query** en `lib/queries/[nueva].ts` devolviendo `{ rows, totals, ... }` con tipo explícito.
+3. **Crea carpeta** `components/[nueva]/` con:
+   - `[Nueva]Hero.tsx` (client) — chart + 4 KPIs
+   - `[Nueva]Filters.tsx` (client) — URL state + debounced search
+   - `[Nueva]Table.tsx` (server) y/o `[Nueva]Grid.tsx` (server)
+4. **Crea** `app/[nueva]/page.tsx` con `searchParams: Promise<{…}>`, fetch en parallel, filter en memoria si N pequeño.
+5. **Agrega** `app/[nueva]/loading.tsx` componiendo skeletons.
+6. **Agrega el item al sidebar** en `components/layout/AppSidebar.tsx` (en el grupo correcto: PRINCIPAL / CATÁLOGO / DATOS).
+7. **Verifica** `npm run build` clean + smoke test (`curl localhost:3003/[nueva]`).
+
+---
+
+## 11 · Cosas a NO hacer
+
+- ❌ Editar componentes en `components/ui/*` a mano — regenera con shadcn CLI.
+- ❌ Hardcodear hex (`#0F766E`) — usa CSS vars (`hsl(var(--chart-1))`) o tailwind classes (`text-emerald-700`).
+- ❌ `font-family: Arial` en `body` — el bug que tenía el `globals.css` original. La fuente es Plus Jakarta vía CSS var.
+- ❌ Importar `@/components/ui/Card` (PascalCase) — shadcn instala lowercase. macOS engaña porque APFS es case-insensitive, pero Turbopack es case-sensitive.
+- ❌ Usar `service_role` en el cliente. Server actions OK con `supabaseServer({ allowSetCookies: true })`.
+- ❌ Agregar emojis en UI sin razón — la única excepción son los emojis en SelectItem labels (filtros de status) porque ayudan a escanear.
+- ❌ `<table className="…">` raw HTML — usa shadcn `<Table>` para consistencia.
+
+---
+
+## 12 · Roadmap visual pendiente
+
+- [ ] `app.rushdata.com.mx` ya conectado ✅
+- [ ] Dark mode (tokens ya soportan `.dark` variant)
+- [ ] Sortable columns en tablas
+- [ ] Paginación cuando los datasets crezcan (hoy todo es client-side filter sobre <300 rows)
+- [ ] Detail drawer/sheet en /sugeridos (click fila → side panel con histórico) — el patrón de shadcn `Sheet` ya está instalado
+- [ ] Export CSV global (hoy solo en /sugeridos)

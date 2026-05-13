@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Topbar } from "@/components/layout/Topbar";
+import { cookies } from "next/headers";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { AppTopbar } from "@/components/layout/AppTopbar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSessionSoft } from "@/lib/dal";
 import "./globals.css";
 
@@ -28,31 +31,34 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await getSessionSoft();
+  const cookieStore = await cookies();
+  const sidebarOpen = cookieStore.get("sidebar_state")?.value !== "false";
 
   return (
     <html
       lang="es-MX"
-      className={`${plusJakarta.variable} ${jetbrainsMono.variable} antialiased`}
+      className={`${plusJakarta.variable} ${jetbrainsMono.variable}`}
     >
-      <body className="min-h-screen bg-background text-foreground">
-        {session ? (
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <div className="flex-1 flex flex-col min-w-0">
-              <Topbar
-                chainLabel="HEB"
-                userEmail={session.email}
+      <body className="min-h-screen bg-background text-foreground antialiased">
+        <TooltipProvider delayDuration={200}>
+          {session ? (
+            <SidebarProvider defaultOpen={sidebarOpen}>
+              <AppSidebar
                 orgName={session.orgName}
+                userEmail={session.email}
                 role={session.role}
               />
-              <main className="flex-1 max-w-[1440px] w-full mx-auto px-8 py-8">
-                {children}
-              </main>
-            </div>
-          </div>
-        ) : (
-          children
-        )}
+              <SidebarInset>
+                <AppTopbar />
+                <main className="flex-1 px-6 py-6 lg:px-8 lg:py-8">
+                  {children}
+                </main>
+              </SidebarInset>
+            </SidebarProvider>
+          ) : (
+            children
+          )}
+        </TooltipProvider>
       </body>
     </html>
   );

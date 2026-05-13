@@ -27,6 +27,8 @@ export type Suggestion = {
 export type SuggestionFilters = {
   reason?: ReasonCode;
   onlyCritical?: boolean;
+  cluster?: string;
+  search?: string;
 };
 
 function toNum(v: unknown): number {
@@ -56,6 +58,9 @@ export async function loadSuggestions(
   const { data, error } = await q.limit(200);
   if (error) throw new Error(`loadSuggestions: ${error.message}`);
 
+  const search = filters.search?.trim().toLowerCase() ?? "";
+  const cluster = filters.cluster?.trim() ?? "";
+
   const rows: Suggestion[] = (data ?? []).map((r: Record<string, unknown>) => {
     const store = (r.stores ?? null) as { name?: string; cluster?: string | null } | null;
     const product = (r.products ?? null) as { name?: string; category?: string | null } | null;
@@ -80,7 +85,16 @@ export async function loadSuggestions(
     };
   });
 
-  const totals = rows.reduce(
+  const filtered = rows.filter((r) => {
+    if (cluster && r.storeCluster !== cluster) return false;
+    if (search) {
+      const hay = `${r.store} ${r.product}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  const totals = filtered.reduce(
     (acc, r) => {
       acc.count += 1;
       acc.lostSale += r.lostSale;
@@ -90,7 +104,7 @@ export async function loadSuggestions(
     { count: 0, lostSale: 0, cases: 0 }
   );
 
-  return { rows, totals };
+  return { rows: filtered, totals };
 }
 
 export const REASON_META: Record<ReasonCode, { label: string; tone: "danger" | "warning" | "accent" | "muted" }> = {
