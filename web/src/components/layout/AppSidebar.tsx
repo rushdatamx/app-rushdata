@@ -17,6 +17,7 @@ import {
   Building2,
   Sparkles,
   Grid3x3,
+  ArrowLeftRight,
 } from "lucide-react";
 
 import {
@@ -55,6 +56,7 @@ const principal: NavItem[] = [
   { href: "/", label: "Inicio", icon: LayoutDashboard },
   { href: "/sugeridos", label: "Sugeridos", icon: ShoppingCart },
   { href: "/forecast", label: "Forecast", icon: Sparkles },
+  { href: "/flow", label: "Sell-in / out", icon: ArrowLeftRight },
   { href: "/oc", label: "Órdenes de compra", icon: FileText },
 ];
 
