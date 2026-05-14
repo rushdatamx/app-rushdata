@@ -6,6 +6,7 @@ import { AppTopbar } from "@/components/layout/AppTopbar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSessionSoft } from "@/lib/dal";
+import { loadAnchorDate } from "@/lib/period";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -33,6 +34,8 @@ export default async function RootLayout({
   const session = await getSessionSoft();
   const cookieStore = await cookies();
   const sidebarOpen = cookieStore.get("sidebar_state")?.value !== "false";
+  // Sólo cargar el anchor si hay sesión (loadAnchorDate requiere org)
+  const dataAnchor = session ? await loadAnchorDate() : null;
 
   return (
     <html
@@ -49,7 +52,7 @@ export default async function RootLayout({
                 role={session.role}
               />
               <SidebarInset>
-                <AppTopbar />
+                <AppTopbar dataAnchor={dataAnchor} />
                 <main className="flex-1 px-6 py-6 lg:px-8 lg:py-8">
                   {children}
                 </main>

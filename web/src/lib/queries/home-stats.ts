@@ -1,6 +1,7 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/ssr";
 import { verifySession } from "@/lib/dal";
+import { loadAnchorDate } from "@/lib/period";
 
 export type HomeStats = {
   avgDdi: number | null;
@@ -21,9 +22,11 @@ export async function loadHomeStats(): Promise<HomeStats> {
   const { orgId } = await verifySession();
   const db = await supabaseServer();
 
-  const since30 = new Date(Date.now() - 30 * 24 * 3600 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const anchor = await loadAnchorDate();
+  const anchorDate = new Date(anchor + "T00:00:00Z");
+  const since30Date = new Date(anchorDate);
+  since30Date.setUTCDate(anchorDate.getUTCDate() - 30);
+  const since30 = since30Date.toISOString().slice(0, 10);
 
   const [storesRes, productsRes, inventoryRes, alertsRes, salesRes, kpiRes] =
     await Promise.all([
@@ -53,7 +56,8 @@ export async function loadHomeStats(): Promise<HomeStats> {
         .from("sales")
         .select("revenue_no_tax")
         .eq("org_id", orgId)
-        .gte("sale_date", since30),
+        .gte("sale_date", since30)
+        .lte("sale_date", anchor),
       db
         .from("daily_kpis")
         .select("total_inventory_value")

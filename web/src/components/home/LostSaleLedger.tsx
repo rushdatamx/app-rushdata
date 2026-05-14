@@ -51,13 +51,14 @@ export type LostSaleLedgerProps = {
 export function LostSaleLedger({
   ytdLostSale,
   ytdStockouts,
+  ytdSince,
   monthlySeries,
   lastMonthLostSale,
   prevMonthLostSale,
 }: LostSaleLedgerProps) {
   if (ytdLostSale === 0 && monthlySeries.length === 0) return null;
 
-  const year = new Date().getUTCFullYear();
+  const year = Number(ytdSince.slice(0, 4));
   const monthsElapsed = monthlySeries.length || 1;
   const avgPerMonth = ytdLostSale / monthsElapsed;
   const projectedYear = avgPerMonth * 12;

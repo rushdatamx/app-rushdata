@@ -1,6 +1,7 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/ssr";
 import { verifySession } from "@/lib/dal";
+import { loadAnchorDate } from "@/lib/period";
 
 export type LostSaleLedger = {
   ytdLostSale: number;
@@ -26,13 +27,18 @@ export async function loadLostSaleLedger(): Promise<LostSaleLedger> {
   const { orgId } = await verifySession();
   const db = await supabaseServer();
 
-  const yearStart = new Date().getUTCFullYear() + "-01-01";
+  // YTD anclado al año del último día con ventas, no al año real del sysclock.
+  // Mantiene consistencia con el resto del portal cuando demos usan datos mock.
+  const anchor = await loadAnchorDate();
+  const anchorYear = Number(anchor.slice(0, 4));
+  const yearStart = `${anchorYear}-01-01`;
 
   const { data, error } = await db
     .from("daily_kpis")
     .select("kpi_date,total_lost_sale_estimate,total_stockouts")
     .eq("org_id", orgId)
     .gte("kpi_date", yearStart)
+    .lte("kpi_date", anchor)
     .order("kpi_date", { ascending: true });
 
   if (error) {

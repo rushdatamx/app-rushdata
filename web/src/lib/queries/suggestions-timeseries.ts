@@ -1,6 +1,7 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/ssr";
 import { verifySession } from "@/lib/dal";
+import { loadAnchorDate } from "@/lib/period";
 
 export type SuggestionsTrendPoint = {
   date: string;
@@ -14,10 +15,9 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function buildDateRange(days: number): string[] {
+function buildDateRangeEnding(endIso: string, days: number): string[] {
   const out: string[] = [];
-  const end = new Date();
-  end.setUTCHours(0, 0, 0, 0);
+  const end = new Date(endIso + "T00:00:00Z");
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(end);
     d.setUTCDate(end.getUTCDate() - i);
@@ -28,18 +28,22 @@ function buildDateRange(days: number): string[] {
 
 /**
  * Trend de venta perdida acumulada por día (últimos N días).
- * Combina stockout_alerts (quiebres ya activos) para mostrar evolución del problema.
+ * Anclada al anchor (max(sale_date)) para que demos con mock estáticos
+ * no muestren ventana vacía.
  */
 export async function loadSuggestionsTrend(days = 14): Promise<SuggestionsTrendPoint[]> {
   const { orgId } = await verifySession();
   const db = await supabaseServer();
-  const since = buildDateRange(days)[0];
+  const anchor = await loadAnchorDate();
+  const range = buildDateRangeEnding(anchor, days);
+  const since = range[0];
 
   const { data } = await db
     .from("stockout_alerts")
     .select("alert_date,lost_sale_estimate")
     .eq("org_id", orgId)
-    .gte("alert_date", since);
+    .gte("alert_date", since)
+    .lte("alert_date", anchor);
 
   const lostByDate = new Map<string, number>();
   const countByDate = new Map<string, number>();
@@ -54,7 +58,7 @@ export async function loadSuggestionsTrend(days = 14): Promise<SuggestionsTrendP
     countByDate.set(r.alert_date, (countByDate.get(r.alert_date) ?? 0) + 1);
   }
 
-  return buildDateRange(days).map((date) => ({
+  return range.map((date) => ({
     date,
     lostSale: lostByDate.get(date) ?? 0,
     count: countByDate.get(date) ?? 0,

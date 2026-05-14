@@ -1,6 +1,7 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/ssr";
 import { verifySession } from "@/lib/dal";
+import { loadAnchorDate } from "@/lib/period";
 
 export type POStatus = "pending" | "partial" | "fulfilled" | "cancelled";
 
@@ -258,11 +259,15 @@ export async function loadPOOverview(filters: POFilters = {}): Promise<POOvervie
       ? null
       : leadTimes.reduce((a, b) => a + b, 0) / leadTimes.length;
 
-  // last-30d value/count
-  const cutoff30 = new Date(Date.now() - 30 * 24 * 3600 * 1000)
-    .toISOString()
-    .slice(0, 10);
-  const recent30 = allRecent.filter((r) => r.orderDate >= cutoff30);
+  // last-30d value/count — anclado a max(sale_date), no a hoy real
+  const anchor = await loadAnchorDate();
+  const anchorDate = new Date(anchor + "T00:00:00Z");
+  const cutoffDate = new Date(anchorDate);
+  cutoffDate.setUTCDate(anchorDate.getUTCDate() - 30);
+  const cutoff30 = cutoffDate.toISOString().slice(0, 10);
+  const recent30 = allRecent.filter(
+    (r) => r.orderDate >= cutoff30 && r.orderDate <= anchor
+  );
   const last30dValue = recent30.reduce((a, r) => a + r.value, 0);
   const last30dCount = recent30.length;
 
