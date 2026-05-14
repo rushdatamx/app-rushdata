@@ -16,6 +16,7 @@ import {
   ChevronsUpDown,
   Building2,
   Sparkles,
+  Grid3x3,
 } from "lucide-react";
 
 import {
@@ -60,6 +61,7 @@ const principal: NavItem[] = [
 const catalogo: NavItem[] = [
   { href: "/tiendas", label: "Tiendas", icon: Store },
   { href: "/productos", label: "Productos", icon: Package },
+  { href: "/cobertura", label: "Cobertura", icon: Grid3x3 },
 ];
 
 const datos: NavItem[] = [

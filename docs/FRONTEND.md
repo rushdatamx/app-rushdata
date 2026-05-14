@@ -141,6 +141,7 @@ Cada filtro escribe un search param. **Param nulo cuando es default** (no `?stat
 | `/tiendas` | `cluster`, `region`, `status` (critical/warning/healthy), `q`, `view` (grid/table) |
 | `/productos` | `cat`, `status` (star/risk/dormant), `q`, `view` (grid/table) |
 | `/oc` | `status` (pending/partial/fulfilled/cancelled), `period` (rolling/calendario/fiscal + `all`), `q` |
+| `/cobertura` | (state cliente: `metric`, `cluster`, `region`, `category`, `hideCedis`) |
 
 Patrón del client component:
 
