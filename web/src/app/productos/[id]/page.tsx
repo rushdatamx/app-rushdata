@@ -17,6 +17,7 @@ import {
   ProductDetailHero,
   type MonthlyPoint,
 } from "@/components/productos/ProductDetailHero";
+import { ProductStoresCsvButton } from "@/components/productos/ProductStoresCsvButton";
 import { fmtMXN, fmtNumber, fmtDecimal } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -261,11 +262,28 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
 
       {/* Tiendas con este SKU */}
       <Card className="p-0 gap-0 overflow-hidden">
-        <CardHeader className="px-6 py-4 border-b">
-          <CardTitle className="text-base">Tiendas con este SKU</CardTitle>
-          <CardDescription>
-            {fmtNumber(stores.length)} tiendas · ordenado por venta 30d
-          </CardDescription>
+        <CardHeader className="px-6 py-4 border-b flex flex-row items-start justify-between gap-4 space-y-0">
+          <div>
+            <CardTitle className="text-base">Tiendas con este SKU</CardTitle>
+            <CardDescription>
+              {fmtNumber(stores.length)} tiendas · ordenado por venta 30d
+            </CardDescription>
+          </div>
+          <ProductStoresCsvButton
+            rows={sortedStores.map((s) => ({
+              storeId: s.storeId,
+              name: s.name,
+              city: s.city,
+              cluster: s.cluster,
+              inventory: s.inventory,
+              velocity: s.velocity,
+              ddi: s.ddi,
+              units30d: s.units30d,
+              revenue30d: s.revenue30d,
+              hasStockout: s.hasStockout,
+            }))}
+            filename={`tiendas_${product.upc ?? product.id}`}
+          />
         </CardHeader>
         <Table>
           <TableHeader>

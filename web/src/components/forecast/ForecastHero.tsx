@@ -49,6 +49,7 @@ export type ForecastHeroProps = {
   momDeltaPct: number | null;
   mape: number | null;
   trendSlopeWeekly: number | null;
+  historyDays: number;
 };
 
 export function ForecastHero({
@@ -60,6 +61,7 @@ export function ForecastHero({
   momDeltaPct,
   mape,
   trendSlopeWeekly,
+  historyDays,
 }: ForecastHeroProps) {
   // El chart espera valores numéricos para todos los días en cada serie
   // Usamos null para "no aplica" pero Recharts dibuja gaps
@@ -84,7 +86,7 @@ export function ForecastHero({
                 Real vs pronóstico vs año anterior
               </div>
               <div className="text-xs text-muted-foreground/70 mt-0.5">
-                90 días históricos · 30 días proyectados
+                {historyDays} días históricos · 30 días proyectados
               </div>
             </div>
             <div className="flex items-center gap-3 text-xs flex-wrap justify-end">

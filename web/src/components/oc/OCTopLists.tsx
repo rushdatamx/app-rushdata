@@ -26,7 +26,7 @@ export function OCTopLists({
       <Card className="p-0 gap-0 overflow-hidden">
         <CardHeader className="px-6 py-4 border-b">
           <CardTitle className="text-base">Top tiendas por valor</CardTitle>
-          <CardDescription>Histórico completo de OCs</CardDescription>
+          <CardDescription>Acumulado histórico · todas las OCs</CardDescription>
         </CardHeader>
         <Table>
           <TableHeader>
@@ -88,7 +88,7 @@ export function OCTopLists({
       <Card className="p-0 gap-0 overflow-hidden">
         <CardHeader className="px-6 py-4 border-b">
           <CardTitle className="text-base">Top productos por valor</CardTitle>
-          <CardDescription>Histórico completo de OCs</CardDescription>
+          <CardDescription>Acumulado histórico · todas las OCs</CardDescription>
         </CardHeader>
         <Table>
           <TableHeader>

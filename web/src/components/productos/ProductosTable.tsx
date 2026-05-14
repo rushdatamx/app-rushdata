@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, TrendingDown, TrendingUp, Minus, Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -19,11 +19,12 @@ import { CsvExportButton } from "@/components/shared/CsvExportButton";
 
 const STATUS_BADGE: Record<
   "star" | "risk" | "dormant" | "normal",
-  { className: string; label: string }
+  { className: string; label: string; icon?: React.ComponentType<{ className?: string; strokeWidth?: number }> }
 > = {
   star: {
     className: "bg-amber-100 text-amber-700 hover:bg-amber-100",
-    label: "⭐ estrella",
+    label: "estrella",
+    icon: Star,
   },
   risk: {
     className: "bg-rose-100 text-rose-700 hover:bg-rose-100",
@@ -145,6 +146,9 @@ export function ProductosTable({ rows, totalStores }: ProductosTableProps) {
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary" className={sb.className}>
+                    {sb.icon && (
+                      <sb.icon className="size-3 mr-1" strokeWidth={2} />
+                    )}
                     {sb.label}
                   </Badge>
                 </TableCell>

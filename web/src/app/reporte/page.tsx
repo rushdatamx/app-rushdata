@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { loadHomeData } from "@/lib/queries/home";
 import { loadHomeStats } from "@/lib/queries/home-stats";
 import { loadLostSaleLedger } from "@/lib/queries/lost-sale-ledger";
@@ -70,9 +71,13 @@ export default async function ReportePage() {
         <div className="flex items-start justify-between gap-6">
           <div>
             <div className="flex items-center gap-3">
-              <div className="flex aspect-square size-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <span className="font-mono text-base font-semibold">R</span>
-              </div>
+              <Image
+                src="/rushdata-logo.png"
+                alt="RushData"
+                width={1200}
+                height={1200}
+                className="size-10 shrink-0 rounded-md object-contain"
+              />
               <div>
                 <div className="text-xl font-semibold tracking-tight">
                   RushData
@@ -87,9 +92,6 @@ export default async function ReportePage() {
             <div className="text-sm font-medium">{session.orgName}</div>
             <div className="text-xs text-muted-foreground">
               {fmtFecha(kpi.date ?? today)}
-            </div>
-            <div className="text-[10px] text-muted-foreground/70 mt-0.5">
-              Generado por {session.email}
             </div>
           </div>
         </div>

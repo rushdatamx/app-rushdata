@@ -10,9 +10,6 @@ import {
   Store,
   Package,
   FileText,
-  Database,
-  Users,
-  Settings,
   LogOut,
   ChevronsUpDown,
   Building2,
@@ -33,8 +30,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuBadge,
-  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -67,12 +62,6 @@ const catalogo: NavItem[] = [
   { href: "/productos", label: "Productos", icon: Package },
   { href: "/cobertura", label: "Cobertura", icon: Grid3x3 },
   { href: "/reportes", label: "Reportes", icon: TableProperties },
-];
-
-const datos: NavItem[] = [
-  { href: "/ingesta", label: "Ingesta", icon: Database, soon: true },
-  { href: "/equipo", label: "Equipo", icon: Users, soon: true },
-  { href: "/ajustes", label: "Ajustes", icon: Settings, soon: true },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -172,35 +161,6 @@ export function AppSidebar({ orgName, userEmail, role }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarSeparator />
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Datos</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {datos.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      tooltip={item.label}
-                      disabled
-                      className="cursor-not-allowed opacity-60"
-                    >
-                      <Icon strokeWidth={1.75} />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                    {item.soon && (
-                      <SidebarMenuBadge className="text-[9px] uppercase tracking-wider">
-                        pronto
-                      </SidebarMenuBadge>
-                    )}
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t">

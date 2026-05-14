@@ -66,7 +66,7 @@ const SEV_META = [
     bar: "bg-amber-500",
     chip: "bg-amber-100 text-amber-700",
     dot: "bg-amber-500",
-    href: "?severity=critical",
+    href: null,
   },
   {
     key: "medium" as const,

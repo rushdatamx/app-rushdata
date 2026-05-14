@@ -14,6 +14,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StoreDetailHero } from "@/components/tiendas/StoreDetailHero";
+import { StoreSkusCsvButton } from "@/components/tiendas/StoreSkusCsvButton";
+import { StorePOsCsvButton } from "@/components/tiendas/StorePOsCsvButton";
 import { MiniSparkline } from "@/components/productos/MiniSparkline";
 import { fmtMXN, fmtNumber, fmtDecimal } from "@/lib/format";
 import { REASON_META, type ReasonCode } from "@/lib/queries/suggestions";
@@ -282,11 +284,28 @@ export default async function StoreDetailPage({ params }: { params: Params }) {
 
       {/* Tabla completa de SKUs */}
       <Card className="p-0 gap-0 overflow-hidden">
-        <CardHeader className="px-6 py-4 border-b">
-          <CardTitle className="text-base">SKUs en esta tienda</CardTitle>
-          <CardDescription>
-            {fmtNumber(skus.length)} SKUs · ordenado por venta 30 días
-          </CardDescription>
+        <CardHeader className="px-6 py-4 border-b flex flex-row items-start justify-between gap-4 space-y-0">
+          <div>
+            <CardTitle className="text-base">SKUs en esta tienda</CardTitle>
+            <CardDescription>
+              {fmtNumber(skus.length)} SKUs · ordenado por venta 30 días
+            </CardDescription>
+          </div>
+          <StoreSkusCsvButton
+            rows={skus.map((k) => ({
+              productId: k.productId,
+              name: k.name,
+              category: k.category,
+              sizeGrams: k.sizeGrams,
+              inventory: k.inventory,
+              velocity: k.velocity,
+              ddi: k.ddi,
+              units30d: k.units30d,
+              revenue30d: k.revenue30d,
+              hasStockout: k.hasStockout,
+            }))}
+            filename={`skus_${store.externalCode ?? store.id}`}
+          />
         </CardHeader>
         <Table>
           <TableHeader>
@@ -369,9 +388,23 @@ export default async function StoreDetailPage({ params }: { params: Params }) {
       {/* OCs recientes */}
       {recentPOs.length > 0 && (
         <Card className="p-0 gap-0 overflow-hidden">
-          <CardHeader className="px-6 py-4 border-b">
-            <CardTitle className="text-base">OCs recientes a esta tienda</CardTitle>
-            <CardDescription>Últimas 10 órdenes</CardDescription>
+          <CardHeader className="px-6 py-4 border-b flex flex-row items-start justify-between gap-4 space-y-0">
+            <div>
+              <CardTitle className="text-base">OCs recientes a esta tienda</CardTitle>
+              <CardDescription>Últimas 10 órdenes</CardDescription>
+            </div>
+            <StorePOsCsvButton
+              rows={recentPOs.map((po) => ({
+                id: po.id,
+                poNumber: po.poNumber,
+                orderDate: po.orderDate,
+                status: po.status,
+                unitsOrdered: po.unitsOrdered,
+                unitsReceived: po.unitsReceived,
+                value: po.value,
+              }))}
+              filename={`ocs_${store.externalCode ?? store.id}`}
+            />
           </CardHeader>
           <Table>
             <TableHeader>

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { Bell, Search, Database } from "lucide-react";
+import { Bell, Database } from "lucide-react";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -24,9 +24,14 @@ import {
 const ROUTE_LABELS: Record<string, string> = {
   "": "Inicio",
   sugeridos: "Sugeridos",
+  forecast: "Forecast",
+  flow: "Sell-in / out",
   oc: "Órdenes de compra",
   tiendas: "Tiendas",
   productos: "Productos",
+  cobertura: "Cobertura",
+  reportes: "Reportes",
+  reporte: "Reporte ejecutivo",
   ingesta: "Ingesta",
   equipo: "Equipo",
   ajustes: "Ajustes",
@@ -129,17 +134,6 @@ export function AppTopbar({ dataAnchor }: AppTopbarProps) {
             </TooltipContent>
           </Tooltip>
         )}
-
-        <button
-          type="button"
-          className="hidden md:inline-flex h-9 min-w-[260px] items-center gap-2 rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground hover:bg-muted transition-colors"
-        >
-          <Search className="size-3.5" strokeWidth={1.75} />
-          <span className="flex-1 text-left">Buscar tienda, SKU, OC…</span>
-          <kbd className="font-mono text-[10px] text-muted-foreground/80 border rounded px-1 py-0.5">
-            ⌘K
-          </kbd>
-        </button>
 
         <Button variant="ghost" size="icon" aria-label="Notificaciones">
           <Bell className="size-4" strokeWidth={1.75} />

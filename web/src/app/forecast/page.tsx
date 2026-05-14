@@ -49,6 +49,7 @@ export default async function ForecastPage({
         momDeltaPct={totals.momDeltaPct}
         mape={totals.mape}
         trendSlopeWeekly={totals.trendSlopeWeekly}
+        historyDays={historyDays}
       />
 
       {/* SubKpis: 4 ventanas comparables */}

@@ -139,17 +139,19 @@ export function TiendasHero({
             label="Concentración top 5"
             value={`${top5Concentration.toFixed(0)}%`}
             sub={
-              top5Concentration > 60
-                ? "alta dependencia · riesgo"
+              top5Concentration > 80
+                ? "muy alta · riesgo"
+                : top5Concentration > 60
+                ? "alta dependencia"
                 : top5Concentration > 40
                 ? "moderada"
                 : "diversificado"
             }
             tone={
-              top5Concentration > 60
-                ? "warning"
-                : top5Concentration > 80
+              top5Concentration > 80
                 ? "danger"
+                : top5Concentration > 60
+                ? "warning"
                 : "default"
             }
           />
