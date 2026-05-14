@@ -9,13 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PeriodSelector, type PeriodOption } from "@/components/shared/PeriodSelector";
 import { cn } from "@/lib/utils";
-
-const PERIODS = [
-  { value: "7d", label: "Últimos 7 días" },
-  { value: "30d", label: "Últimos 30 días" },
-  { value: "90d", label: "Últimos 90 días" },
-];
 
 const CHAINS = [
   { value: "heb", label: "HEB" },
@@ -25,11 +20,25 @@ const CHAINS = [
 
 export type HomeFiltersProps = {
   chain: string;
-  period: string;
   currency: string;
+  periodValue: string;
+  periodLabel: string;
+  periodShortLabel: string;
+  rollingOptions: PeriodOption[];
+  calendarOptions: PeriodOption[];
+  fiscalOptions: PeriodOption[];
 };
 
-export function HomeFilters({ chain, period, currency }: HomeFiltersProps) {
+export function HomeFilters({
+  chain,
+  currency,
+  periodValue,
+  periodLabel,
+  periodShortLabel,
+  rollingOptions,
+  calendarOptions,
+  fiscalOptions,
+}: HomeFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -66,18 +75,14 @@ export function HomeFilters({ chain, period, currency }: HomeFiltersProps) {
         </SelectContent>
       </Select>
 
-      <Select value={period} onValueChange={(v) => updateParam("period", v)}>
-        <SelectTrigger size="sm" className="w-[180px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {PERIODS.map((p) => (
-            <SelectItem key={p.value} value={p.value}>
-              {p.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <PeriodSelector
+        value={periodValue}
+        resolvedLabel={periodLabel}
+        resolvedShortLabel={periodShortLabel}
+        rolling={rollingOptions}
+        calendar={calendarOptions}
+        fiscal={fiscalOptions}
+      />
 
       <div className="inline-flex h-9 items-center rounded-md border bg-muted/30 p-0.5 text-xs font-medium">
         {(["MXN", "USD"] as const).map((c) => (

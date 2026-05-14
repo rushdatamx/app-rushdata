@@ -135,7 +135,7 @@ Cada filtro escribe un search param. **Param nulo cuando es default** (no `?stat
 
 | Ruta | Params soportados |
 |---|---|
-| `/` | `period` (7d/30d/90d), `chain`, `cur` (MXN/USD) |
+| `/` | `period` (rolling 7d/30d/90d · calendario `cal:YYYY-MM` / `cal:YYYY` / `cal:ytd` · fiscal HEB `fis:P##-YYYY` / `fis:YYYY` / `fis:ytd`), `chain`, `cur` (MXN/USD) |
 | `/sugeridos` | `reason`, `severity` (critical), `cluster`, `q` |
 | `/forecast` | — (sin filtros aún; futura iteración: `horizon`, `category`) |
 | `/tiendas` | `cluster`, `region`, `status` (critical/warning/healthy), `q`, `view` (grid/table) |
@@ -223,6 +223,16 @@ for (const r of allRows) {
 - "all" sin tono → `bg-primary text-primary-foreground border-primary`
 
 **Vistas que usan este patrón:** `/sugeridos` (razones), `/tiendas` (status), `/productos` (status), `/oc` (status). Los filtros que NO son enum acotado (clusters, regiones, categorías) siguen como `<Select>`.
+
+### Selector de período dual (rolling · calendario · fiscal)
+
+A partir de 2026-05-14, el filtro de período en `/` usa el componente `<PeriodSelector>` (en `components/shared/`) con tres columnas: **Rolling** (7d/30d/90d), **Calendario** (mes actual + 5 anteriores, año anterior, YTD) y **Fiscal HEB** (últimos 6 períodos P##, años fiscales completos, FY YTD). La columna fiscal se oculta cuando la cadena activa no tiene calendario fiscal (`chain_calendars`).
+
+**Helper backend:** `lib/period.ts` con `loadFiscalPeriods(chainSlug)`, `resolvePeriod(raw, fiscalPeriods)` y `buildPeriodOptions(fiscalPeriods)`. Devuelve `{ start, end, days, label, shortLabel, mode }`. Las queries que consumían `days: number` deben migrarse a `(startIso, endIso)` — ejemplo: `loadHomeTimeSeries` ya migrada.
+
+**Param URL:** `?period=<raw>` donde raw es `7d|30d|90d` (rolling), `cal:YYYY-MM|cal:YYYY|cal:ytd` (calendario), `fis:P##-YYYY|fis:YYYY|fis:ytd` (fiscal). Sin param → 30d. Si el raw es inválido o el calendario fiscal no aplica → fallback a 30d.
+
+**Pendiente:** extender a `/forecast`, `/oc`, `/productos`, `/tiendas` (hoy usan defaults hardcoded).
 
 ### Tabla shadcn — convenciones
 

@@ -3,6 +3,7 @@ import { loadHomeTimeSeries } from "@/lib/queries/home-timeseries";
 import { loadHomeStats } from "@/lib/queries/home-stats";
 import { loadLostSaleLedger } from "@/lib/queries/lost-sale-ledger";
 import { verifySession } from "@/lib/dal";
+import { loadFiscalPeriods, resolvePeriod, buildPeriodOptions } from "@/lib/period";
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { HomeFilters } from "@/components/home/HomeFilters";
 import { HeroChart } from "@/components/home/HeroChart";
@@ -11,13 +12,6 @@ import { PriorityTable } from "@/components/home/PriorityTable";
 import { LostSaleLedger } from "@/components/home/LostSaleLedger";
 
 export const dynamic = "force-dynamic";
-
-const PERIOD_DAYS: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };
-const PERIOD_LABEL: Record<string, string> = {
-  "7d": "Últimos 7 días",
-  "30d": "Últimos 30 días",
-  "90d": "Últimos 90 días",
-};
 
 type SearchParams = Promise<{
   period?: string;
@@ -39,15 +33,17 @@ export default async function Home({
   searchParams: SearchParams;
 }) {
   const sp = await searchParams;
-  const period = sp.period && PERIOD_DAYS[sp.period] ? sp.period : "30d";
   const chain = sp.chain ?? "heb";
   const currency = sp.cur === "USD" ? "USD" : "MXN";
-  const days = PERIOD_DAYS[period];
+
+  const fiscalPeriods = await loadFiscalPeriods(chain);
+  const period = resolvePeriod(sp.period, fiscalPeriods);
+  const periodOptions = buildPeriodOptions(fiscalPeriods);
 
   const [session, data, series, stats, ledger] = await Promise.all([
     verifySession(),
     loadHomeData(),
-    loadHomeTimeSeries(days),
+    loadHomeTimeSeries(period.start, period.end),
     loadHomeStats(),
     loadLostSaleLedger(),
   ]);
@@ -66,7 +62,16 @@ export default async function Home({
         firstMove={topSuggestions[0] ?? null}
       />
 
-      <HomeFilters chain={chain} period={period} currency={currency} />
+      <HomeFilters
+        chain={chain}
+        currency={currency}
+        periodValue={period.raw}
+        periodLabel={period.label}
+        periodShortLabel={period.shortLabel}
+        rollingOptions={periodOptions.rolling}
+        calendarOptions={periodOptions.calendar}
+        fiscalOptions={periodOptions.fiscal}
+      />
 
       <HeroChart
         series={series}
@@ -74,7 +79,7 @@ export default async function Home({
         suggestedCount={suggestedCount}
         suggestedValue={suggestedValue}
         fillRate={kpi.fillRate}
-        periodLabel={PERIOD_LABEL[period]}
+        periodLabel={period.label}
       />
 
       <SubKpiStrip

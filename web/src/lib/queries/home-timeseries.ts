@@ -14,41 +14,39 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function isoDaysAgo(days: number): string {
-  const d = new Date();
-  d.setUTCHours(0, 0, 0, 0);
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
-function buildDateRange(days: number): string[] {
+function buildDateRangeBetween(startIso: string, endIso: string): string[] {
   const out: string[] = [];
-  const end = new Date();
-  end.setUTCHours(0, 0, 0, 0);
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(end);
-    d.setUTCDate(end.getUTCDate() - i);
+  const start = new Date(startIso + "T00:00:00Z");
+  const end = new Date(endIso + "T00:00:00Z");
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
     out.push(d.toISOString().slice(0, 10));
   }
   return out;
 }
 
-export async function loadHomeTimeSeries(days = 30): Promise<DailyPoint[]> {
+/**
+ * Carga la serie diaria de captured vs lost sale entre dos fechas (inclusive).
+ */
+export async function loadHomeTimeSeries(
+  startIso: string,
+  endIso: string
+): Promise<DailyPoint[]> {
   const { orgId } = await verifySession();
   const db = await supabaseServer();
-  const since = isoDaysAgo(days - 1);
 
   const [salesRes, alertsRes] = await Promise.all([
     db
       .from("sales")
       .select("sale_date,revenue_no_tax")
       .eq("org_id", orgId)
-      .gte("sale_date", since),
+      .gte("sale_date", startIso)
+      .lte("sale_date", endIso),
     db
       .from("stockout_alerts")
       .select("alert_date,lost_sale_estimate")
       .eq("org_id", orgId)
-      .gte("alert_date", since),
+      .gte("alert_date", startIso)
+      .lte("alert_date", endIso),
   ]);
 
   const captured = new Map<string, number>();
@@ -73,7 +71,7 @@ export async function loadHomeTimeSeries(days = 30): Promise<DailyPoint[]> {
     );
   }
 
-  return buildDateRange(days).map((date) => ({
+  return buildDateRangeBetween(startIso, endIso).map((date) => ({
     date,
     capturedSale: captured.get(date) ?? 0,
     lostSale: lost.get(date) ?? 0,
