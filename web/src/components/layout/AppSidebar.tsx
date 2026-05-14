@@ -18,6 +18,7 @@ import {
   Sparkles,
   Grid3x3,
   ArrowLeftRight,
+  TableProperties,
 } from "lucide-react";
 
 import {
@@ -64,6 +65,7 @@ const catalogo: NavItem[] = [
   { href: "/tiendas", label: "Tiendas", icon: Store },
   { href: "/productos", label: "Productos", icon: Package },
   { href: "/cobertura", label: "Cobertura", icon: Grid3x3 },
+  { href: "/reportes", label: "Reportes", icon: TableProperties },
 ];
 
 const datos: NavItem[] = [
