@@ -328,8 +328,9 @@ Cuando entren más, mantener tabla aquí + detalle en `docs/CLIENTS.md`.
 - **Fases 0-5 completas** (BD + motor + frontend + auth + deploy). Detalle en `docs/HISTORY.md`.
 - **Demo viva** en https://app-rushdata.vercel.app con magic link.
 - **Org demo:** Sazonadores Vence Real (HEB, ~106k filas mock).
-- **8 rutas activas:** `/`, `/sugeridos`, `/forecast`, `/tiendas`, `/tiendas/[id]`, `/productos`, `/productos/[id]`, `/oc`.
-- **Sesión 2026-05-13/14 (commit `24f0b10`):** densificación KAM-first de las 5 vistas + nueva `/forecast`. Chips con contador como patrón estándar, KPIs accionables linkeados, Lost Sale Ledger YTD, forecast con MAPE backtest. Ver detalle en `docs/HISTORY.md`.
+- **13 rutas activas:** `/`, `/sugeridos`, `/forecast`, `/flow`, `/oc`, `/tiendas`, `/tiendas/[id]`, `/productos`, `/productos/[id]`, `/cobertura`, `/reportes`, `/reporte` (no en sidebar).
+- **Sesión 2026-05-13/14 (commit `24f0b10`):** densificación KAM-first de las 5 vistas + nueva `/forecast`. Chips con contador, KPIs accionables, Lost Sale Ledger YTD, forecast con MAPE backtest.
+- **Sesión 2026-05-14 paridad MatchData (commit `b9b7f70`):** 8 features Tier 1+2+3 completadas. Selector de período dual (calendario + fiscal HEB), vista `/cobertura` (matriz tienda×SKU global), Export CSV global en 6 vistas, histórico multi-año con refactor SQL `fn_*_kpis(p_org_id, p_start, p_end)`, reporte PDF `/reporte` print-friendly, vista `/flow` sell-in vs sell-out con insight automático, columna ASP en `/productos` con detección de promos agresivas, pivot builder `/reportes` ad-hoc. **Detalle completo + arquitectura técnica Supabase ↔ Frontend en `docs/HISTORY.md`**.
 
 ### Pendientes principales
 
@@ -338,13 +339,17 @@ Cuando entren más, mantener tabla aquí + detalle en `docs/CLIENTS.md`.
 - [ ] Onboarding Delikos con datos reales (post-demo)
 - [ ] Adapter MERCO post-Delikos
 - [ ] pg_cron para correr `fn_run_engine` automático
+- [ ] Versionar migraciones Fase 5 (auth) en `sql/06_auth.sql`
+- [ ] Histórico de stockouts (tabla nueva) para que F4 también afecte "stockouts en período X"
+- [ ] Cruce 2D (row×col) en `/reportes`
+- [ ] `/forecast` con selector dual completo (requiere refactor del modelo comparativo)
 
 ---
 
 **Próximo paso al volver:**
-- (a) Iterar mejoras sobre las vistas rediseñadas (Mario abrirá sesión nueva con eso) — ver "Pendientes / mejoras detectadas" en `docs/HISTORY.md` sesión 2026-05-13/14
+- (a) Iterar mejoras sobre las vistas (Mario abrirá sesión nueva con eso) — ver "Pendientes / mejoras detectadas" en `docs/HISTORY.md` sesiones 2026-05-13/14 y 2026-05-14
 - (b) Conectar dominio `app.rushdata.com.mx`
-- (c) Validar `/forecast` con datos reales de Delikos cuando entre
-- (d) Killer features pendientes: heatmap tienda×SKU, phantom stockouts, OC sub-óptima detector, lead time real por tienda
+- (c) Validar `/forecast` y `/flow` con datos reales de Delikos cuando entre
+- (d) Killer features pendientes: phantom stockouts, OC sub-óptima detector, lead time real por tienda
 - (e) Enseñar a prospecto / onboardear Delikos
 - (f) Adapter MERCO
