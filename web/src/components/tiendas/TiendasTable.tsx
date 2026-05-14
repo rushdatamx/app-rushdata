@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { fmtMXN, fmtNumber, fmtDecimal } from "@/lib/format";
 import type { StoreRow } from "@/lib/queries/stores";
 import { storeStatus } from "@/components/tiendas/TiendasGrid";
+import { CsvExportButton } from "@/components/shared/CsvExportButton";
 
 const STATUS_BADGE: Record<
   ReturnType<typeof storeStatus>,
@@ -45,6 +46,32 @@ export function TiendasTable({ rows }: { rows: StoreRow[] }) {
 
   return (
     <Card className="p-0 gap-0 overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-3 border-b bg-muted/10">
+        <div className="text-xs text-muted-foreground">
+          {fmtNumber(rows.length)} tienda{rows.length === 1 ? "" : "s"}
+        </div>
+        <CsvExportButton
+          rows={rows}
+          filename="tiendas"
+          columns={[
+            { header: "Tienda", accessor: (r) => r.name },
+            { header: "Código", accessor: (r) => r.externalCode ?? "" },
+            { header: "Cluster", accessor: (r) => r.cluster ?? "" },
+            { header: "Región", accessor: (r) => r.region ?? "" },
+            { header: "Ciudad", accessor: (r) => r.city ?? "" },
+            { header: "Estado", accessor: (r) => r.state ?? "" },
+            { header: "CEDIS", accessor: (r) => r.isCedis },
+            { header: "SKUs activos", accessor: (r) => r.skusActive },
+            { header: "SKUs con stock", accessor: (r) => r.skusWithStock },
+            { header: "Stockouts", accessor: (r) => r.stockouts },
+            { header: "Inventario un.", accessor: (r) => r.inventoryUnits },
+            { header: "Inventario MXN", accessor: (r) => r.inventoryValue },
+            { header: "Un. 30d", accessor: (r) => r.units30d },
+            { header: "Venta 30d MXN", accessor: (r) => r.revenue30d },
+            { header: "DDI promedio", accessor: (r) => r.avgDdi },
+          ]}
+        />
+      </div>
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">

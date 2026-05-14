@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { MiniSparkline } from "@/components/productos/MiniSparkline";
 import { fmtMXN, fmtNumber } from "@/lib/format";
 import type { ProductRow } from "@/lib/queries/products";
+import { CsvExportButton } from "@/components/shared/CsvExportButton";
 
 const STATUS_BADGE: Record<
   "star" | "risk" | "dormant" | "normal",
@@ -61,6 +62,32 @@ export function ProductosTable({ rows, totalStores }: ProductosTableProps) {
   }
   return (
     <Card className="p-0 gap-0 overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-3 border-b bg-muted/10">
+        <div className="text-xs text-muted-foreground">
+          {fmtNumber(rows.length)} producto{rows.length === 1 ? "" : "s"}
+        </div>
+        <CsvExportButton
+          rows={rows}
+          filename="productos"
+          columns={[
+            { header: "Producto", accessor: (r) => r.name },
+            { header: "UPC", accessor: (r) => r.upc ?? "" },
+            { header: "Categoría", accessor: (r) => r.category ?? "" },
+            { header: "Subcategoría", accessor: (r) => r.subcategory ?? "" },
+            { header: "Gramaje", accessor: (r) => r.sizeGrams },
+            { header: "Precio MXN", accessor: (r) => r.unitPrice },
+            { header: "Costo MXN", accessor: (r) => r.unitCost },
+            { header: "Estado", accessor: (r) => r.status },
+            { header: "Tiendas con stock", accessor: (r) => r.storesWithInventory },
+            { header: "Penetración %", accessor: (r) => r.penetration },
+            { header: "Stockouts", accessor: (r) => r.storesWithStockout },
+            { header: "Inventario un.", accessor: (r) => r.inventoryUnits },
+            { header: "Un. 30d", accessor: (r) => r.units30d },
+            { header: "Venta 30d MXN", accessor: (r) => r.revenue30d },
+            { header: "Trend %", accessor: (r) => r.trend },
+          ]}
+        />
+      </div>
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">

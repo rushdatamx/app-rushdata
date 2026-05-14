@@ -27,6 +27,7 @@ import { fmtMXN, fmtNumber, fmtDecimal } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { markSuggestionsSent } from "@/app/sugeridos/actions";
 import type { Suggestion } from "@/lib/queries/suggestions";
+import { rowsToCsv, downloadCsv, todayStamp, type CsvColumn } from "@/lib/csv";
 
 const REASON_BADGE: Record<string, { className: string; label: string }> = {
   stockout_risk: {
@@ -124,45 +125,26 @@ export function SugeridosTable({ rows }: SugeridosTableProps) {
   };
 
   const handleExport = () => {
-    const sel = rows.filter((r) => selected.has(r.id));
-    if (sel.length === 0) return;
-    const header = [
-      "Tienda",
-      "Cluster",
-      "Producto",
-      "Razón",
-      "DDI",
-      "Stock",
-      "Velocidad/día",
-      "Sugerido (un)",
-      "Cajas",
-      "$ Riesgo",
-      "Confianza",
-    ].join(",");
-    const lines = sel.map((r) =>
-      [
-        `"${r.store}"`,
-        r.storeCluster ?? "",
-        `"${r.product}"`,
-        r.reasonCode ?? "",
-        r.ddi ?? "",
-        r.inventory,
-        r.velocity ?? "",
-        r.suggestedUnits,
-        r.suggestedCases,
-        r.lostSale,
-        r.confidence ?? "",
-      ].join(",")
-    );
-    const csv = [header, ...lines].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const stamp = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = `sugeridos-${stamp}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const useSelected = selected.size > 0;
+    const data = useSelected ? rows.filter((r) => selected.has(r.id)) : rows;
+    if (data.length === 0) return;
+    const columns: CsvColumn<Suggestion>[] = [
+      { header: "Tienda", accessor: (r) => r.store },
+      { header: "Cluster", accessor: (r) => r.storeCluster ?? "" },
+      { header: "Producto", accessor: (r) => r.product },
+      { header: "Categoría", accessor: (r) => r.productCategory ?? "" },
+      { header: "Razón", accessor: (r) => r.reasonCode ?? "" },
+      { header: "DDI", accessor: (r) => r.ddi },
+      { header: "Stock", accessor: (r) => r.inventory },
+      { header: "Velocidad/día", accessor: (r) => r.velocity },
+      { header: "Sugerido (un)", accessor: (r) => r.suggestedUnits },
+      { header: "Cajas", accessor: (r) => r.suggestedCases },
+      { header: "$ Riesgo", accessor: (r) => r.lostSale },
+      { header: "Confianza", accessor: (r) => r.confidence },
+    ];
+    const csv = rowsToCsv(data, columns);
+    const suffix = useSelected ? "seleccionados" : "todos";
+    downloadCsv(`sugeridos-${suffix}_${todayStamp()}.csv`, csv);
   };
 
   if (rows.length === 0) {
@@ -178,6 +160,21 @@ export function SugeridosTable({ rows }: SugeridosTableProps) {
   return (
     <>
       <Card className="p-0 gap-0 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-3 border-b bg-muted/10">
+          <div className="text-xs text-muted-foreground">
+            {fmtNumber(rows.length)} sugerido{rows.length === 1 ? "" : "s"}
+            {selected.size > 0 && ` · ${selected.size} seleccionado${selected.size === 1 ? "" : "s"}`}
+          </div>
+          <button
+            type="button"
+            onClick={handleExport}
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border bg-background text-xs font-medium hover:bg-muted transition-colors"
+            title={selected.size > 0 ? "Exportar seleccionados" : "Exportar todos los filtrados"}
+          >
+            <Download className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
+            CSV
+          </button>
+        </div>
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30 hover:bg-muted/30">

@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { fmtMXN, fmtNumber } from "@/lib/format";
 import type { RecentPO } from "@/lib/queries/po";
+import { CsvExportButton } from "@/components/shared/CsvExportButton";
 
 const STATUS_BADGE: Record<string, { className: string; label: string }> = {
   fulfilled: {
@@ -58,12 +59,33 @@ export function OCRecentTable({
 }) {
   return (
     <Card className="p-0 gap-0 overflow-hidden">
-      <CardHeader className="px-6 py-4 border-b">
-        <CardTitle className="text-base">OCs registradas</CardTitle>
-        <CardDescription>
-          Mostrando {fmtNumber(rows.length)} de {fmtNumber(filteredCount)} OCs filtradas
-          {filteredCount < totalCount && ` (${fmtNumber(totalCount)} en total)`}
-        </CardDescription>
+      <CardHeader className="px-6 py-4 border-b flex flex-row items-start justify-between gap-3">
+        <div className="space-y-1.5">
+          <CardTitle className="text-base">OCs registradas</CardTitle>
+          <CardDescription>
+            Mostrando {fmtNumber(rows.length)} de {fmtNumber(filteredCount)} OCs filtradas
+            {filteredCount < totalCount && ` (${fmtNumber(totalCount)} en total)`}
+          </CardDescription>
+        </div>
+        {rows.length > 0 && (
+          <CsvExportButton
+            rows={rows}
+            filename="oc-recientes"
+            columns={[
+              { header: "# OC", accessor: (r) => r.poNumber ?? r.id },
+              { header: "Fecha orden", accessor: (r) => r.orderDate },
+              { header: "Fecha esperada", accessor: (r) => r.expectedDelivery ?? "" },
+              { header: "Estado", accessor: (r) => r.status },
+              { header: "Un. pedidas", accessor: (r) => r.unitsOrdered },
+              { header: "Un. recibidas", accessor: (r) => r.unitsReceived },
+              { header: "Fill rate", accessor: (r) => r.fillRate },
+              { header: "Valor MXN", accessor: (r) => r.value },
+              { header: "Pendiente MXN", accessor: (r) => r.pendingValue },
+              { header: "Lead time (d)", accessor: (r) => r.leadTimeDays },
+              { header: "# líneas", accessor: (r) => r.lineCount },
+            ]}
+          />
+        )}
       </CardHeader>
 
       {rows.length === 0 ? (

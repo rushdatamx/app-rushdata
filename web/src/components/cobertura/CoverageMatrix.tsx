@@ -18,6 +18,7 @@ import type {
   CoverageProduct,
   CoverageStore,
 } from "@/lib/queries/coverage";
+import { CsvExportButton } from "@/components/shared/CsvExportButton";
 
 type Metric = "ddi" | "inventory" | "velocity" | "stockout";
 
@@ -155,6 +156,58 @@ export function CoverageMatrix({
           />
           Ocultar CEDIS
         </label>
+        <CsvExportButton
+          rows={() => {
+            const productMap = new Map(filteredProducts.map((p) => [p.id, p]));
+            const storeMap = new Map(filteredStores.map((s) => [s.id, s]));
+            const out: Array<{
+              storeName: string;
+              storeCluster: string | null;
+              storeRegion: string | null;
+              productName: string;
+              productCategory: string | null;
+              upc: string | null;
+              inventory: number;
+              velocity: number;
+              ddi: number | null;
+              hasStockout: boolean;
+            }> = [];
+            for (const p of filteredProducts) {
+              for (const s of filteredStores) {
+                const c = cellMap.get(`${s.id}::${p.id}`);
+                if (!c) continue;
+                const store = storeMap.get(s.id)!;
+                const product = productMap.get(p.id)!;
+                out.push({
+                  storeName: store.name,
+                  storeCluster: store.cluster,
+                  storeRegion: store.region,
+                  productName: product.name,
+                  productCategory: product.category,
+                  upc: product.upc,
+                  inventory: c.inventory,
+                  velocity: c.velocity,
+                  ddi: c.ddi,
+                  hasStockout: c.hasStockout,
+                });
+              }
+            }
+            return out;
+          }}
+          filename="cobertura-matriz"
+          columns={[
+            { header: "Tienda", accessor: (r) => r.storeName },
+            { header: "Cluster", accessor: (r) => r.storeCluster ?? "" },
+            { header: "Región", accessor: (r) => r.storeRegion ?? "" },
+            { header: "Producto", accessor: (r) => r.productName },
+            { header: "Categoría", accessor: (r) => r.productCategory ?? "" },
+            { header: "UPC", accessor: (r) => r.upc ?? "" },
+            { header: "Inventario", accessor: (r) => r.inventory },
+            { header: "Velocidad/día", accessor: (r) => r.velocity },
+            { header: "DDI", accessor: (r) => r.ddi },
+            { header: "En quiebre", accessor: (r) => r.hasStockout },
+          ]}
+        />
       </div>
 
       <div className="text-xs text-muted-foreground">

@@ -18,6 +18,7 @@ import { MiniSparkline } from "@/components/productos/MiniSparkline";
 import { fmtMXN, fmtNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ForecastSkuRow } from "@/lib/queries/forecast";
+import { CsvExportButton } from "@/components/shared/CsvExportButton";
 
 function DeltaCell({ value }: { value: number | null }) {
   if (value == null)
@@ -68,12 +69,31 @@ export function ForecastTable({ rows }: { rows: ForecastSkuRow[] }) {
 
   return (
     <Card className="p-0 gap-0 overflow-hidden">
-      <CardHeader className="px-6 py-4 border-b">
-        <CardTitle className="text-base">Top SKUs · Real vs Pronóstico</CardTitle>
-        <CardDescription>
-          {fmtNumber(rows.length)} SKUs · ordenado por venta últimos 30d ·
-          pronóstico ajustado por tendencia y estacionalidad YoY
-        </CardDescription>
+      <CardHeader className="px-6 py-4 border-b flex flex-row items-start justify-between gap-3">
+        <div className="space-y-1.5">
+          <CardTitle className="text-base">Top SKUs · Real vs Pronóstico</CardTitle>
+          <CardDescription>
+            {fmtNumber(rows.length)} SKUs · ordenado por venta últimos 30d ·
+            pronóstico ajustado por tendencia y estacionalidad YoY
+          </CardDescription>
+        </div>
+        <CsvExportButton
+          rows={rows}
+          filename="forecast-top-skus"
+          columns={[
+            { header: "SKU", accessor: (r) => r.name },
+            { header: "Categoría", accessor: (r) => r.category ?? "" },
+            { header: "Un. 30d", accessor: (r) => r.units30d },
+            { header: "Venta 30d", accessor: (r) => r.revenue30d },
+            { header: "Un. mes anterior", accessor: (r) => r.unitsPrev30d },
+            { header: "Un. año anterior", accessor: (r) => r.unitsYoy30d },
+            { header: "% vs MoM", accessor: (r) => r.momDelta },
+            { header: "% vs YoY", accessor: (r) => r.yoyDelta },
+            { header: "Pronóstico un.", accessor: (r) => r.forecastUnits },
+            { header: "Pronóstico $", accessor: (r) => r.forecastRevenue },
+            { header: "Trend % sem", accessor: (r) => r.trendSlope },
+          ]}
+        />
       </CardHeader>
       <Table>
         <TableHeader>

@@ -470,8 +470,7 @@ Pasos para agregar `/[nueva-vista]` siguiendo el patrón:
 - [ ] Paginación cuando los datasets crezcan (hoy todo es client-side filter sobre <300 rows)
 - [ ] Detail drawer/sheet en /sugeridos (click fila → side panel con histórico) — el patrón de shadcn `Sheet` ya está instalado
 - [ ] Toggle agrupar /sugeridos por Producto (consolidado tipo Celes) — "Total a pedir Papa 45g: 1,840 un en 12 tiendas"
-- [ ] Export CSV global (hoy solo en /sugeridos)
-- [ ] Export CSV en `/forecast` para que Mario comparta con su jefe
+- [x] Export CSV global — helper `lib/csv.ts` + `<CsvExportButton>` integrado en `/sugeridos`, `/productos`, `/tiendas`, `/oc`, `/forecast`, `/cobertura`
 - [ ] Heatmap tienda × SKU (vista nueva `/cobertura`)
 - [ ] Validar forecast contra datos reales (Delikos) — si MAPE > 30% en un SKU, mostrar warning inline
 - [ ] Filtros en `/forecast`: `horizon` (30/60/90d), `category`, `chain`
