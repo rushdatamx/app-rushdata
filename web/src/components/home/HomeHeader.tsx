@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, AlertTriangle, Wallet, Sparkles } from "lucide-react";
+import { ArrowRight, AlertTriangle, Wallet, Sparkles, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
 import { fmtMXN, fmtNumber, fmtDecimal } from "@/lib/format";
 import type { TopSuggestion } from "@/lib/queries/home";
 
@@ -60,9 +59,9 @@ export function HomeHeader({
           </p>
         </div>
         <Button variant="outline" size="sm" className="hidden sm:inline-flex" asChild>
-          <Link href="/sugeridos">
-            <Download className="size-3.5" strokeWidth={1.75} />
-            Exportar sugeridos
+          <Link href="/reporte">
+            <FileText className="size-3.5" strokeWidth={1.75} />
+            Reporte PDF
           </Link>
         </Button>
       </div>

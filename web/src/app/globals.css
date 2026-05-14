@@ -127,3 +127,51 @@ body {
 * {
   border-color: hsl(var(--border));
 }
+
+/* ────────────────────────────────────────────────────────────
+   Print styles para /reporte
+   ──────────────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm 14mm;
+  }
+
+  /* Ocultar el shell global (sidebar + topbar) */
+  [data-slot="sidebar-wrapper"],
+  [data-slot="sidebar"],
+  header[data-slot="topbar"],
+  .app-topbar {
+    display: none !important;
+  }
+
+  /* La página principal debe ocupar todo el ancho */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+
+  /* El wrapper del SidebarInset/SidebarProvider — ocupar todo */
+  [data-slot="sidebar-inset"] {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 10pt;
+  }
+
+  /* Evita partir cards/secciones a la mitad */
+  .break-inside-avoid {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Ocultar todo lo marcado con print:hidden */
+  .print\:hidden {
+    display: none !important;
+  }
+}
