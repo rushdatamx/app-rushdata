@@ -20,6 +20,7 @@ export type HomeData = {
 export type TopSuggestion = {
   id: string;
   store: string;
+  storeCluster: string | null;
   product: string;
   ddi: number | null;
   suggestedUnits: number;
@@ -74,12 +75,12 @@ export async function loadHomeData(): Promise<HomeData> {
     db
       .from("suggested_orders")
       .select(
-        "id,suggested_units,suggested_cases,current_ddi,estimated_lost_sale,confidence,reason_code,stores(name),products(name)"
+        "id,suggested_units,suggested_cases,current_ddi,estimated_lost_sale,confidence,reason_code,stores(name,cluster),products(name)"
       )
       .eq("org_id", orgId)
       .eq("status", "new")
       .order("estimated_lost_sale", { ascending: false, nullsFirst: false })
-      .limit(8),
+      .limit(10),
     db
       .from("stockout_alerts")
       .select(
@@ -105,17 +106,21 @@ export async function loadHomeData(): Promise<HomeData> {
   );
 
   const topSuggestions: TopSuggestion[] = (topRes.data ?? []).map(
-    (r: Record<string, unknown>) => ({
-      id: String(r.id),
-      store: (r.stores as { name?: string } | null)?.name ?? "—",
-      product: (r.products as { name?: string } | null)?.name ?? "—",
-      ddi: r.current_ddi == null ? null : toNum(r.current_ddi),
-      suggestedUnits: toNum(r.suggested_units),
-      suggestedCases: toNum(r.suggested_cases),
-      lostSale: toNum(r.estimated_lost_sale),
-      confidence: r.confidence == null ? null : toNum(r.confidence),
-      reasonCode: (r.reason_code as string) ?? null,
-    })
+    (r: Record<string, unknown>) => {
+      const store = (r.stores ?? null) as { name?: string; cluster?: string | null } | null;
+      return {
+        id: String(r.id),
+        store: store?.name ?? "—",
+        storeCluster: store?.cluster ?? null,
+        product: (r.products as { name?: string } | null)?.name ?? "—",
+        ddi: r.current_ddi == null ? null : toNum(r.current_ddi),
+        suggestedUnits: toNum(r.suggested_units),
+        suggestedCases: toNum(r.suggested_cases),
+        lostSale: toNum(r.estimated_lost_sale),
+        confidence: r.confidence == null ? null : toNum(r.confidence),
+        reasonCode: (r.reason_code as string) ?? null,
+      };
+    }
   );
 
   const alerts: AlertRow[] = (alertsRes.data ?? []).map((r: Record<string, unknown>) => ({

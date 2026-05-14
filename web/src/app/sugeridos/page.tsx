@@ -43,21 +43,29 @@ export default async function SugeridosPage({
   const cluster = sp.cluster ?? "";
   const search = sp.q ?? "";
 
-  const [{ rows, totals }, trend, clusters] = await Promise.all([
-    loadSuggestions({
-      reason: reason === "all" ? undefined : (reason as ReasonCode),
-      onlyCritical: severity === "critical",
-      cluster: cluster || undefined,
-      search: search || undefined,
-    }),
-    loadSuggestionsTrend(14),
-    loadAvailableClusters(),
-  ]);
+  const [{ rows, totals, unfilteredCount, reasonCounts }, trend, clusters] =
+    await Promise.all([
+      loadSuggestions({
+        reason: reason === "all" ? undefined : (reason as ReasonCode),
+        onlyCritical: severity === "critical",
+        cluster: cluster || undefined,
+        search: search || undefined,
+      }),
+      loadSuggestionsTrend(14),
+      loadAvailableClusters(),
+    ]);
 
-  // breakdown por severidad
-  const sevCount = { critical: 0, high: 0, medium: 0, low: 0 };
+  // breakdown por severidad ({ count, lostSale }) — para barra apilada
+  const sevBreakdown = {
+    critical: { count: 0, lostSale: 0 },
+    high: { count: 0, lostSale: 0 },
+    medium: { count: 0, lostSale: 0 },
+    low: { count: 0, lostSale: 0 },
+  };
   for (const r of rows) {
-    sevCount[ddiSeverity(r.ddi)] += 1;
+    const k = ddiSeverity(r.ddi);
+    sevBreakdown[k].count += 1;
+    sevBreakdown[k].lostSale += r.lostSale;
   }
 
   return (
@@ -80,7 +88,7 @@ export default async function SugeridosPage({
         lostSale={totals.lostSale}
         cases={totals.cases}
         trend={trend}
-        severity={sevCount}
+        severity={sevBreakdown}
       />
 
       {/* Filters */}
@@ -91,11 +99,15 @@ export default async function SugeridosPage({
           cluster={cluster}
           search={search}
           clusters={clusters}
+          reasonCounts={reasonCounts}
         />
         <div className="text-xs text-muted-foreground">
           Mostrando{" "}
           <span className="font-medium text-foreground">{fmtNumber(rows.length)}</span>{" "}
-          de {fmtNumber(rows.length)} sugeridos
+          de {fmtNumber(unfilteredCount)} sugeridos
+          {rows.length !== unfilteredCount && (
+            <span className="text-muted-foreground/70"> · filtros activos</span>
+          )}
         </div>
       </div>
 

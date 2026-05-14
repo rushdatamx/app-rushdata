@@ -70,6 +70,17 @@ export default async function TiendasPage({
   // Aplica filtros adicionales en memoria (status + search)
   const rows = applyClientFilters(serverRows, { status, search });
 
+  // Conteo por status sobre el universo filtrado por cluster/region (sin status/search)
+  const statusCounts = {
+    all: serverRows.length,
+    critical: 0,
+    warning: 0,
+    healthy: 0,
+  };
+  for (const s of serverRows) {
+    statusCounts[storeStatus(s)] += 1;
+  }
+
   // Stats agregados sobre lo filtrado
   const totalRevenue = rows.reduce((a, s) => a + s.revenue30d, 0);
   const storesWithStockout = rows.filter((s) => s.stockouts > 0).length;
@@ -83,6 +94,11 @@ export default async function TiendasPage({
       worst == null || s.stockouts > worst.stockouts ? s : worst,
     null
   );
+
+  // Concentración top 5 tiendas (%): qué tan dependiente es la marca de pocas tiendas
+  const sortedByRev = [...rows].sort((a, b) => b.revenue30d - a.revenue30d);
+  const top5Revenue = sortedByRev.slice(0, 5).reduce((a, s) => a + s.revenue30d, 0);
+  const top5Concentration = totalRevenue === 0 ? 0 : (top5Revenue / totalRevenue) * 100;
 
   return (
     <div className="flex flex-col gap-6">
@@ -114,6 +130,7 @@ export default async function TiendasPage({
             ? { id: riskStore.id, name: riskStore.name, stockouts: riskStore.stockouts }
             : null
         }
+        top5Concentration={top5Concentration}
       />
 
       {/* Filters */}
@@ -126,6 +143,7 @@ export default async function TiendasPage({
           view={view}
           clusters={clusters}
           regions={regions}
+          statusCounts={statusCounts}
         />
         <div className="text-xs text-muted-foreground">
           Mostrando{" "}

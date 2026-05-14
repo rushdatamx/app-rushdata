@@ -158,9 +158,11 @@ export default async function StoreDetailPage({ params }: { params: Params }) {
         skusInStock={totals.skusInStock}
         skusActive={totals.skusActive}
         stockouts={totals.stockouts}
-        pendingSuggestions={totals.pendingSuggestions}
-        revenue30d={totals.revenue30d}
         inventoryUnits={totals.inventoryUnits}
+        inventoryValue={totals.inventoryValue}
+        revenue30d={totals.revenue30d}
+        avgFillRate={totals.avgFillRate}
+        avgLeadTimeDays={totals.avgLeadTimeDays}
       />
 
       {/* Sugeridos pendientes — CTA principal */}

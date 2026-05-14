@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { Store, AlertTriangle, TrendingUp, ShieldAlert } from "lucide-react";
+import { AlertTriangle, TrendingUp, ShieldAlert, Layers } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import {
@@ -27,6 +27,7 @@ export type TiendasHeroProps = {
   byCluster: ClusterPoint[];
   topStore: { id: string; name: string; revenue: number } | null;
   riskStore: { id: string; name: string; stockouts: number } | null;
+  top5Concentration: number;
 };
 
 export function TiendasHero({
@@ -37,6 +38,7 @@ export function TiendasHero({
   byCluster,
   topStore,
   riskStore,
+  top5Concentration,
 }: TiendasHeroProps) {
   const pctStockout =
     totalStores === 0 ? 0 : (storesWithStockout / totalStores) * 100;
@@ -124,19 +126,32 @@ export function TiendasHero({
         </div>
 
         {/* KPI side */}
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 divide-x divide-y">
-          <KpiBlock
-            icon={Store}
-            label="Tiendas activas"
-            value={fmtNumber(totalStores)}
-            sub="puntos de venta"
-          />
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 divide-x divide-y border-t lg:border-t-0">
           <KpiBlock
             icon={ShieldAlert}
             label="Con quiebres"
             value={`${pctStockout.toFixed(0)}%`}
             sub={`${storesWithStockout} de ${totalStores} tiendas`}
             tone={pctStockout > 20 ? "danger" : pctStockout > 0 ? "warning" : "success"}
+          />
+          <KpiBlock
+            icon={Layers}
+            label="Concentración top 5"
+            value={`${top5Concentration.toFixed(0)}%`}
+            sub={
+              top5Concentration > 60
+                ? "alta dependencia · riesgo"
+                : top5Concentration > 40
+                ? "moderada"
+                : "diversificado"
+            }
+            tone={
+              top5Concentration > 60
+                ? "warning"
+                : top5Concentration > 80
+                ? "danger"
+                : "default"
+            }
           />
           {topStore ? (
             <LinkKpiBlock

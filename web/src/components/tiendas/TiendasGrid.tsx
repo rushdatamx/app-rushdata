@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { fmtMXN, fmtNumber } from "@/lib/format";
+import { fmtMXN, fmtNumber, fmtDecimal } from "@/lib/format";
 import type { StoreRow } from "@/lib/queries/stores";
 
 export type StoreStatus = "critical" | "warning" | "healthy";
@@ -125,7 +125,9 @@ function StoreCard({ store: s }: { store: StoreRow }) {
             {styles.label}
           </Badge>
           <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
-            {fmtNumber(s.units30d)} un · 30d
+            {s.avgDdi == null
+              ? `${fmtNumber(s.units30d)} un · 30d`
+              : `DDI ${fmtDecimal(s.avgDdi)} prom`}
           </span>
         </div>
       </Card>

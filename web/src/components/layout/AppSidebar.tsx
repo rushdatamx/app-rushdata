@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronsUpDown,
   Building2,
+  Sparkles,
 } from "lucide-react";
 
 import {
@@ -52,6 +53,7 @@ type NavItem = {
 const principal: NavItem[] = [
   { href: "/", label: "Inicio", icon: LayoutDashboard },
   { href: "/sugeridos", label: "Sugeridos", icon: ShoppingCart },
+  { href: "/forecast", label: "Forecast", icon: Sparkles },
   { href: "/oc", label: "Órdenes de compra", icon: FileText },
 ];
 

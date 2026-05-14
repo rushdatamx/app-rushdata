@@ -37,12 +37,20 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+export type ReasonCounts = Record<ReasonCode | "all", number>;
+
 export async function loadSuggestions(
   filters: SuggestionFilters = {}
-): Promise<{ rows: Suggestion[]; totals: { count: number; lostSale: number; cases: number } }> {
+): Promise<{
+  rows: Suggestion[];
+  totals: { count: number; lostSale: number; cases: number };
+  unfilteredCount: number;
+  reasonCounts: ReasonCounts;
+}> {
   const { orgId } = await verifySession();
   const db = await supabaseServer();
 
+  // Query principal (filtrada por razón + DDI crítico si aplican)
   let q = db
     .from("suggested_orders")
     .select(
@@ -55,8 +63,19 @@ export async function loadSuggestions(
   if (filters.reason) q = q.eq("reason_code", filters.reason);
   if (filters.onlyCritical) q = q.lte("current_ddi", 3);
 
-  const { data, error } = await q.limit(200);
+  // Para los chips de razón: contar TODOS los sugeridos pendientes por reason_code
+  // (sin aplicar el filtro de razón, pero respetando cluster/search se calcula client-side)
+  const reasonCountsQuery = db
+    .from("suggested_orders")
+    .select("reason_code", { count: "exact" })
+    .eq("org_id", orgId)
+    .eq("status", "new");
+
+  const [{ data, error }, { data: allReasonRows, error: errAll, count: totalAll }] =
+    await Promise.all([q.limit(200), reasonCountsQuery]);
+
   if (error) throw new Error(`loadSuggestions: ${error.message}`);
+  if (errAll) throw new Error(`loadSuggestions reasonCounts: ${errAll.message}`);
 
   const search = filters.search?.trim().toLowerCase() ?? "";
   const cluster = filters.cluster?.trim() ?? "";
@@ -104,7 +123,25 @@ export async function loadSuggestions(
     { count: 0, lostSale: 0, cases: 0 }
   );
 
-  return { rows: filtered, totals };
+  // Contadores por razón (universo completo de sugeridos pendientes, sin filtro de razón)
+  const reasonCounts: ReasonCounts = {
+    all: totalAll ?? 0,
+    stockout_risk: 0,
+    low_ddi: 0,
+    velocity_up: 0,
+    periodic_replenish: 0,
+  };
+  for (const r of (allReasonRows ?? []) as Array<{ reason_code: string | null }>) {
+    const code = r.reason_code as ReasonCode | null;
+    if (code && code in reasonCounts) reasonCounts[code] += 1;
+  }
+
+  return {
+    rows: filtered,
+    totals,
+    unfilteredCount: totalAll ?? 0,
+    reasonCounts,
+  };
 }
 
 export const REASON_META: Record<ReasonCode, { label: string; tone: "danger" | "warning" | "accent" | "muted" }> = {

@@ -21,7 +21,14 @@ const REASONS = [
   { value: "low_ddi", label: "DDI bajo" },
   { value: "velocity_up", label: "Velocity ↑" },
   { value: "periodic_replenish", label: "Reposición" },
-];
+] as const;
+
+type ReasonKey =
+  | "all"
+  | "stockout_risk"
+  | "low_ddi"
+  | "velocity_up"
+  | "periodic_replenish";
 
 const DDI = [
   { value: "all", label: "Todos" },
@@ -34,6 +41,7 @@ export type SugeridosFiltersProps = {
   cluster: string;
   search: string;
   clusters: string[];
+  reasonCounts: Record<ReasonKey, number>;
 };
 
 export function SugeridosFilters({
@@ -42,6 +50,7 @@ export function SugeridosFilters({
   cluster,
   search,
   clusters,
+  reasonCounts,
 }: SugeridosFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -90,21 +99,37 @@ export function SugeridosFilters({
     >
       {/* Reason chips */}
       <div className="flex items-center gap-1 flex-wrap">
-        {REASONS.map((r) => (
-          <button
-            key={r.value}
-            type="button"
-            onClick={() => updateParams({ reason: r.value })}
-            className={cn(
-              "h-8 px-3 rounded-md text-xs font-medium transition-colors",
-              reason === r.value
-                ? "bg-primary text-primary-foreground"
-                : "border bg-background hover:bg-muted"
-            )}
-          >
-            {r.label}
-          </button>
-        ))}
+        {REASONS.map((r) => {
+          const count = reasonCounts[r.value as ReasonKey] ?? 0;
+          // ocultar chips no-"all" sin sugeridos
+          if (r.value !== "all" && count === 0 && reason !== r.value) return null;
+          const isActive = reason === r.value;
+          return (
+            <button
+              key={r.value}
+              type="button"
+              onClick={() => updateParams({ reason: r.value })}
+              className={cn(
+                "h-8 pl-3 pr-2 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-2",
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : "border bg-background hover:bg-muted"
+              )}
+            >
+              <span>{r.label}</span>
+              <span
+                className={cn(
+                  "inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded text-[10px] font-mono tabular-nums",
+                  isActive
+                    ? "bg-primary-foreground/15 text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="h-6 w-px bg-border mx-1" />

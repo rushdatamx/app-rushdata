@@ -1,7 +1,15 @@
 "use client";
 
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { MapPin, AlertTriangle, Boxes, ShoppingCart } from "lucide-react";
+import {
+  MapPin,
+  AlertTriangle,
+  Boxes,
+  ShoppingCart,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { Card } from "@/components/ui/card";
 import {
@@ -52,6 +60,14 @@ export function ProductDetailHero({
   }));
   const penetration = storesTotal === 0 ? 0 : (storesWithInventory / storesTotal) * 100;
 
+  // Delta del último mes vs mes anterior
+  let monthDelta: number | null = null;
+  if (monthly.length >= 2) {
+    const last = monthly[monthly.length - 1].revenue;
+    const prev = monthly[monthly.length - 2].revenue;
+    if (prev > 0) monthDelta = ((last - prev) / prev) * 100;
+  }
+
   return (
     <Card className="p-0 gap-0 overflow-hidden">
       <div className="grid grid-cols-1 lg:grid-cols-5">
@@ -69,6 +85,23 @@ export function ProductDetailHero({
               {fmtMXN(revenue30d)}
             </span>
             <span className="text-xs text-muted-foreground">últimos 30 días</span>
+            {monthDelta != null && (
+              <span
+                className={cn(
+                  "text-xs font-medium inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md",
+                  monthDelta >= 0
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-rose-100 text-rose-700"
+                )}
+              >
+                {monthDelta >= 0 ? (
+                  <TrendingUp className="size-3" strokeWidth={2} />
+                ) : (
+                  <TrendingDown className="size-3" strokeWidth={2} />
+                )}
+                {Math.abs(monthDelta).toFixed(0)}% MoM
+              </span>
+            )}
           </div>
 
           {data.length >= 2 ? (

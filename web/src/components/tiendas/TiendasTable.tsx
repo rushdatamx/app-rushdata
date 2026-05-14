@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { fmtMXN, fmtNumber } from "@/lib/format";
+import { fmtMXN, fmtNumber, fmtDecimal } from "@/lib/format";
 import type { StoreRow } from "@/lib/queries/stores";
 import { storeStatus } from "@/components/tiendas/TiendasGrid";
 
@@ -53,6 +53,7 @@ export function TiendasTable({ rows }: { rows: StoreRow[] }) {
             <TableHead>Ubicación</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead className="text-right">SKUs en stock</TableHead>
+            <TableHead className="text-right">DDI prom</TableHead>
             <TableHead className="text-right">Quiebres</TableHead>
             <TableHead className="text-right">Venta 30d</TableHead>
             <TableHead className="text-right pr-6">Inv. valuado</TableHead>
@@ -116,6 +117,19 @@ export function TiendasTable({ rows }: { rows: StoreRow[] }) {
                   <div className="text-[11px] text-muted-foreground font-mono tabular-nums">
                     {skusPct.toFixed(0)}%
                   </div>
+                </TableCell>
+                <TableCell
+                  className={`text-right font-mono tabular-nums ${
+                    s.avgDdi == null
+                      ? "text-muted-foreground/50"
+                      : s.avgDdi <= 3
+                      ? "text-rose-700 font-semibold"
+                      : s.avgDdi <= 7
+                      ? "text-amber-700"
+                      : "text-foreground"
+                  }`}
+                >
+                  {s.avgDdi == null ? "—" : `${fmtDecimal(s.avgDdi)}d`}
                 </TableCell>
                 <TableCell
                   className={`text-right font-mono tabular-nums ${

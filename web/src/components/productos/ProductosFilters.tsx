@@ -15,11 +15,33 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const STATUS = [
-  { value: "all", label: "Todos los estados" },
-  { value: "star", label: "⭐ Estrellas (top 20%)" },
-  { value: "risk", label: "🔴 Con quiebres" },
-  { value: "dormant", label: "💤 Dormidos (sin venta 30d)" },
+type StatusKey = "all" | "star" | "risk" | "dormant";
+
+const STATUS_CHIPS: Array<{
+  value: StatusKey;
+  label: string;
+  dot?: string;
+  activeBg?: string;
+}> = [
+  { value: "all", label: "Todos" },
+  {
+    value: "star",
+    label: "Estrellas",
+    dot: "bg-amber-500",
+    activeBg: "bg-amber-600 text-white border-amber-600 hover:bg-amber-600",
+  },
+  {
+    value: "risk",
+    label: "Riesgo",
+    dot: "bg-rose-500",
+    activeBg: "bg-rose-600 text-white border-rose-600 hover:bg-rose-600",
+  },
+  {
+    value: "dormant",
+    label: "Dormidos",
+    dot: "bg-muted-foreground/60",
+    activeBg: "bg-foreground text-background border-foreground hover:bg-foreground",
+  },
 ];
 
 export type ProductosFiltersProps = {
@@ -28,6 +50,7 @@ export type ProductosFiltersProps = {
   search: string;
   view: string;
   categories: string[];
+  statusCounts: Record<StatusKey, number>;
 };
 
 export function ProductosFilters({
@@ -36,6 +59,7 @@ export function ProductosFilters({
   search,
   view,
   categories,
+  statusCounts,
 }: ProductosFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -100,19 +124,47 @@ export function ProductosFilters({
         </Select>
       )}
 
-      {/* Status */}
-      <Select value={status} onValueChange={(v) => updateParams({ status: v })}>
-        <SelectTrigger size="sm" className="w-[210px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {STATUS.map((s) => (
-            <SelectItem key={s.value} value={s.value}>
-              {s.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* Status chips */}
+      <div className="flex items-center gap-1 flex-wrap">
+        {STATUS_CHIPS.map((s) => {
+          const count = statusCounts[s.value] ?? 0;
+          if (s.value !== "all" && count === 0 && status !== s.value) return null;
+          const isActive = status === s.value;
+          return (
+            <button
+              key={s.value}
+              type="button"
+              onClick={() => updateParams({ status: s.value })}
+              className={cn(
+                "h-8 pl-3 pr-2 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-2 border",
+                isActive
+                  ? s.activeBg ?? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background hover:bg-muted"
+              )}
+            >
+              {s.dot && (
+                <span
+                  className={cn(
+                    "size-2 rounded-full",
+                    isActive ? "bg-white/80" : s.dot
+                  )}
+                />
+              )}
+              <span>{s.label}</span>
+              <span
+                className={cn(
+                  "inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded text-[10px] font-mono tabular-nums",
+                  isActive
+                    ? "bg-white/15 text-white"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Search */}
       <div className="relative">

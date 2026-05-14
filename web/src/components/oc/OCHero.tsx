@@ -1,7 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { ShoppingBag, Target, Clock, HandCoins } from "lucide-react";
+import {
+  Target,
+  Clock,
+  HandCoins,
+  AlertTriangle,
+  ArrowUpRight,
+} from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import {
@@ -11,6 +18,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { fmtMXN, fmtNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const chartConfig = {
   ordered: { label: "Pedido", color: "hsl(var(--chart-4))" },
@@ -51,6 +59,9 @@ export type OCHeroProps = {
   activePOs: number;
   pendingValue: number;
   avgLeadTimeDays: number | null;
+  underFillCount: number;
+  unitsOrdered: number;
+  unitsReceived: number;
 };
 
 export function OCHero({
@@ -60,6 +71,9 @@ export function OCHero({
   activePOs,
   pendingValue,
   avgLeadTimeDays,
+  underFillCount,
+  unitsOrdered,
+  unitsReceived,
 }: OCHeroProps) {
   const data = monthly.map((m) => ({
     month: fmtMonthLabel(m.monthStart),
@@ -68,6 +82,8 @@ export function OCHero({
   }));
 
   const fillRatePct = avgFillRate == null ? null : avgFillRate * 100;
+  const gapUnits = unitsOrdered - unitsReceived;
+  const gapPct = unitsOrdered > 0 ? (gapUnits / unitsOrdered) * 100 : 0;
 
   return (
     <Card className="p-0 gap-0 overflow-hidden">
@@ -100,6 +116,20 @@ export function OCHero({
               {fmtMXN(totalValue)}
             </span>
             <span className="text-xs text-muted-foreground">histórico ordenado</span>
+            {gapUnits > 0 && (
+              <span
+                className={cn(
+                  "text-xs font-medium inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md",
+                  gapPct >= 10
+                    ? "bg-rose-100 text-rose-700"
+                    : gapPct >= 5
+                    ? "bg-amber-100 text-amber-700"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                Brecha {gapPct.toFixed(1)}% · {fmtNumber(gapUnits)} un no recibidas
+              </span>
+            )}
           </div>
 
           <ChartContainer config={chartConfig} className="h-[220px] w-full mt-6">
@@ -152,18 +182,20 @@ export function OCHero({
         </div>
 
         {/* KPI side */}
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 divide-x divide-y">
-          <KpiBlock
-            icon={ShoppingBag}
-            label="OCs activas"
-            value={fmtNumber(activePOs)}
-            sub="pendientes o parciales"
-          />
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 divide-x divide-y border-t lg:border-t-0">
           <KpiBlock
             icon={Target}
             label="Fill rate global"
             value={fillRatePct == null ? "—" : `${fillRatePct.toFixed(1)}%`}
-            sub="histórico"
+            sub={
+              fillRatePct == null
+                ? "sin OCs registradas"
+                : fillRatePct >= 95
+                ? "surtido completo"
+                : fillRatePct >= 90
+                ? "surtido parcial"
+                : "atención cadena"
+            }
             tone={
               fillRatePct == null
                 ? "default"
@@ -174,11 +206,29 @@ export function OCHero({
                 : "danger"
             }
           />
+          {underFillCount > 0 ? (
+            <LinkKpiBlock
+              href="?status=partial"
+              icon={AlertTriangle}
+              label="OCs sub-surtidas"
+              value={fmtNumber(underFillCount)}
+              sub="cadena pidió menos del 90%"
+              tone="danger"
+            />
+          ) : (
+            <KpiBlock
+              icon={AlertTriangle}
+              label="OCs sub-surtidas"
+              value="0"
+              sub="ninguna < 90% fill"
+              tone="success"
+            />
+          )}
           <KpiBlock
             icon={HandCoins}
             label="$ por recibir"
             value={fmtMXN(pendingValue)}
-            sub="en OCs abiertas"
+            sub={`${fmtNumber(activePOs)} OCs abiertas`}
             tone={pendingValue > 0 ? "warning" : "success"}
           />
           <KpiBlock
@@ -221,7 +271,7 @@ function KpiBlock({
 }) {
   const t = TONE[tone];
   return (
-    <div className="flex flex-col justify-center px-5 py-5">
+    <div className="flex flex-col justify-center px-5 py-5 h-full">
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
           {label}
@@ -237,5 +287,23 @@ function KpiBlock({
       </div>
       <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{sub}</div>
     </div>
+  );
+}
+
+function LinkKpiBlock(
+  props: React.ComponentProps<typeof KpiBlock> & { href: string }
+) {
+  const { href, ...rest } = props;
+  return (
+    <Link
+      href={href}
+      className="group relative hover:bg-muted/40 transition-colors"
+    >
+      <KpiBlock {...rest} />
+      <ArrowUpRight
+        className="absolute top-3 right-3 size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+        strokeWidth={2}
+      />
+    </Link>
   );
 }

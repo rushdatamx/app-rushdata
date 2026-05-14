@@ -57,6 +57,7 @@ export type POOverview = {
     pendingValue: number;
     avgLeadTimeDays: number | null;
     activePOs: number;
+    underFillCount: number;
   };
   monthly: MonthPoint[];
   topStores: TopStore[];
@@ -64,6 +65,7 @@ export type POOverview = {
   recent: RecentPO[];
   recentFilteredCount: number;
   recentTotalCount: number;
+  statusCounts: Record<"all" | POStatus, number>;
 };
 
 export type POFilters = {
@@ -222,6 +224,29 @@ export async function loadPOOverview(filters: POFilters = {}): Promise<POOvervie
     (r) => r.status === "pending" || r.status === "partial"
   ).length;
 
+  // OCs con under-fill (fill rate < 90%) sobre OCs cerradas (no pending)
+  const underFillCount = allRecent.filter(
+    (r) =>
+      r.fillRate != null &&
+      r.fillRate < 0.9 &&
+      r.status !== "pending" &&
+      r.status !== "cancelled"
+  ).length;
+
+  // Conteo por status para chips
+  const statusCounts: Record<"all" | POStatus, number> = {
+    all: allRecent.length,
+    pending: 0,
+    partial: 0,
+    fulfilled: 0,
+    cancelled: 0,
+  };
+  for (const r of allRecent) {
+    if (r.status in statusCounts) {
+      statusCounts[r.status as POStatus] += 1;
+    }
+  }
+
   // lead time promedio sobre OCs que tienen expected
   const leadTimes = allRecent
     .map((r) => r.leadTimeDays)
@@ -248,6 +273,7 @@ export async function loadPOOverview(filters: POFilters = {}): Promise<POOvervie
       pendingValue,
       avgLeadTimeDays,
       activePOs,
+      underFillCount,
     },
     monthly,
     topStores,
@@ -255,5 +281,6 @@ export async function loadPOOverview(filters: POFilters = {}): Promise<POOvervie
     recent,
     recentFilteredCount: recentFiltered.length,
     recentTotalCount: allRecent.length,
+    statusCounts,
   };
 }

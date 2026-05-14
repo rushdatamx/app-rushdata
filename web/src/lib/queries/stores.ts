@@ -18,6 +18,7 @@ export type StoreRow = {
   stockouts: number;
   units30d: number;
   revenue30d: number;
+  avgDdi: number | null;
 };
 
 function toNum(v: unknown): number {
@@ -60,6 +61,10 @@ export async function loadStores(opts: { cluster?: string; region?: string } = {
     const k = kpiMap.get(String(s.id));
     if (s.cluster) clusters.add(s.cluster as string);
     if (s.region) regions.add(s.region as string);
+    const inventoryUnits = k ? toNum(k.total_inventory_units) : 0;
+    const units30d = k ? toNum(k.units_last_30d) : 0;
+    const dailyVel = units30d / 30;
+    const avgDdi = dailyVel > 0 ? inventoryUnits / dailyVel : null;
     return {
       id: String(s.id),
       externalCode: (s.external_code as string) ?? null,
@@ -71,11 +76,12 @@ export async function loadStores(opts: { cluster?: string; region?: string } = {
       isCedis: Boolean(s.is_cedis),
       skusActive: k ? toNum(k.skus_active) : 0,
       skusWithStock: k ? toNum(k.skus_with_stock) : 0,
-      inventoryUnits: k ? toNum(k.total_inventory_units) : 0,
+      inventoryUnits,
       inventoryValue: k ? toNum(k.total_inventory_value_cost) : 0,
       stockouts: k ? toNum(k.active_stockouts) : 0,
-      units30d: k ? toNum(k.units_last_30d) : 0,
+      units30d,
       revenue30d: k ? toNum(k.revenue_last_30d) : 0,
+      avgDdi,
     };
   });
 

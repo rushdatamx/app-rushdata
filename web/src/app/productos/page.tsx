@@ -106,6 +106,35 @@ export default async function ProductosPage({
     .reduce((a, p) => a + p.revenue30d, 0);
   const topConcentration = totalRevenue === 0 ? 0 : (top3Revenue / totalRevenue) * 100;
 
+  // Margen estimado 30d (revenue - cost*units) sobre lo filtrado
+  const totalMargin = rows.reduce(
+    (a, p) => a + (p.revenue30d - p.unitCost * p.units30d),
+    0
+  );
+  const marginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
+
+  // Conteo por status sobre el universo (sin filtro de status, sí con cat/search)
+  // Para los chips: aplico cat/search igual que `rows` pero NO el filtro status
+  const beforeStatus = enriched.filter((p) => {
+    if (category && p.category !== category) return false;
+    if (searchLower) {
+      const hay = `${p.name} ${p.upc ?? ""} ${p.category ?? ""}`.toLowerCase();
+      if (!hay.includes(searchLower)) return false;
+    }
+    return true;
+  });
+  const statusCounts = {
+    all: beforeStatus.length,
+    star: 0,
+    risk: 0,
+    dormant: 0,
+  };
+  for (const p of beforeStatus) {
+    if (p.status === "star") statusCounts.star += 1;
+    else if (p.status === "risk") statusCounts.risk += 1;
+    else if (p.status === "dormant") statusCounts.dormant += 1;
+  }
+
   const topProducts: TopProductPoint[] = rows.slice(0, 10).map((p) => ({
     id: p.id,
     fullName: p.name,
@@ -140,6 +169,8 @@ export default async function ProductosPage({
       <ProductosHero
         totalSkus={rows.length}
         totalRevenue={totalRevenue}
+        totalMargin={totalMargin}
+        marginPct={marginPct}
         topConcentration={topConcentration}
         topProducts={topProducts}
         starProduct={starProduct}
@@ -161,6 +192,7 @@ export default async function ProductosPage({
           search={search}
           view={view}
           categories={Array.from(categories).sort()}
+          statusCounts={statusCounts}
         />
         <div className="text-xs text-muted-foreground">
           Mostrando{" "}

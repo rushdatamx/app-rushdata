@@ -41,10 +41,12 @@ export type StoreDetail = {
     id: string;
     poNumber: string | null;
     orderDate: string;
+    expectedDelivery: string | null;
     status: string;
     unitsOrdered: number;
     unitsReceived: number;
     value: number;
+    leadTimeDays: number | null;
   }>;
   totals: {
     skusActive: number;
@@ -52,7 +54,10 @@ export type StoreDetail = {
     stockouts: number;
     pendingSuggestions: number;
     inventoryUnits: number;
+    inventoryValue: number;
     revenue30d: number;
+    avgFillRate: number | null;
+    avgLeadTimeDays: number | null;
   };
 };
 
@@ -93,7 +98,7 @@ export async function loadStoreDetail(storeId: string): Promise<StoreDetail | nu
     db
       .from("purchase_order_lines")
       .select(
-        "po_id,units_ordered,units_received,purchase_orders!inner(id,po_number,order_date,status,total_value)"
+        "po_id,units_ordered,units_received,purchase_orders!inner(id,po_number,order_date,expected_delivery_date,status,total_value)"
       )
       .eq("store_id", storeId)
       .order("po_id", { ascending: false })
@@ -142,7 +147,17 @@ export async function loadStoreDetail(storeId: string): Promise<StoreDetail | nu
   // Agregar líneas → resumen por PO
   const poMap = new Map<
     string,
-    { id: string; poNumber: string | null; orderDate: string; status: string; unitsOrdered: number; unitsReceived: number; value: number }
+    {
+      id: string;
+      poNumber: string | null;
+      orderDate: string;
+      expectedDelivery: string | null;
+      status: string;
+      unitsOrdered: number;
+      unitsReceived: number;
+      value: number;
+      leadTimeDays: number | null;
+    }
   >();
   for (const row of (posRes.data ?? []) as Array<Record<string, unknown>>) {
     const po = row.purchase_orders as Record<string, unknown> | null;
@@ -153,20 +168,53 @@ export async function loadStoreDetail(storeId: string): Promise<StoreDetail | nu
       existing.unitsOrdered += toNum(row.units_ordered);
       existing.unitsReceived += toNum(row.units_received);
     } else {
+      const orderDate = (po.order_date as string) ?? "";
+      const expected = (po.expected_delivery_date as string) ?? null;
+      let leadTimeDays: number | null = null;
+      if (orderDate && expected) {
+        const ta = new Date(orderDate + "T00:00:00").getTime();
+        const tb = new Date(expected + "T00:00:00").getTime();
+        if (Number.isFinite(ta) && Number.isFinite(tb)) {
+          const d = Math.round((tb - ta) / (24 * 3600 * 1000));
+          if (d >= 0 && d <= 90) leadTimeDays = d;
+        }
+      }
       poMap.set(pid, {
         id: pid,
         poNumber: (po.po_number as string) ?? null,
-        orderDate: (po.order_date as string) ?? "",
+        orderDate,
+        expectedDelivery: expected,
         status: (po.status as string) ?? "—",
         unitsOrdered: toNum(row.units_ordered),
         unitsReceived: toNum(row.units_received),
         value: toNum(po.total_value),
+        leadTimeDays,
       });
     }
   }
-  const recentPOs = Array.from(poMap.values())
-    .sort((a, b) => (a.orderDate < b.orderDate ? 1 : -1))
-    .slice(0, 10);
+  const allPOs = Array.from(poMap.values()).sort((a, b) =>
+    a.orderDate < b.orderDate ? 1 : -1
+  );
+  const recentPOs = allPOs.slice(0, 10);
+
+  // Métricas agregadas de OCs históricas a esta tienda
+  const totalOrdered = allPOs.reduce((a, p) => a + p.unitsOrdered, 0);
+  const totalReceived = allPOs.reduce((a, p) => a + p.unitsReceived, 0);
+  const avgFillRate = totalOrdered > 0 ? totalReceived / totalOrdered : null;
+  const leadTimes = allPOs
+    .map((p) => p.leadTimeDays)
+    .filter((d): d is number => d != null);
+  const avgLeadTimeDays =
+    leadTimes.length > 0
+      ? leadTimes.reduce((a, b) => a + b, 0) / leadTimes.length
+      : null;
+
+  // Inventario valuado: usar precio (fallback a 0) — proxy razonable a nivel tienda
+  // Idealmente vendría de daily_kpis pero esa tabla no tiene granularidad por tienda.
+  const inventoryValue = skus.reduce(
+    (a, k) => a + k.inventory * k.unitPrice,
+    0
+  );
 
   const totals = {
     skusActive: skus.length,
@@ -174,7 +222,10 @@ export async function loadStoreDetail(storeId: string): Promise<StoreDetail | nu
     stockouts: skus.filter((k) => k.hasStockout).length,
     pendingSuggestions: suggestions.length,
     inventoryUnits: skus.reduce((a, k) => a + k.inventory, 0),
+    inventoryValue,
     revenue30d: skus.reduce((a, k) => a + k.revenue30d, 0),
+    avgFillRate,
+    avgLeadTimeDays,
   };
 
   return {

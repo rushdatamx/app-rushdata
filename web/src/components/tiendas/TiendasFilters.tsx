@@ -15,11 +15,33 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const STATUS = [
-  { value: "all", label: "Todos los estados" },
-  { value: "critical", label: "🔴 Críticos (3+ quiebres)" },
-  { value: "warning", label: "🟡 Atención (1-2 quiebres)" },
-  { value: "healthy", label: "🟢 Sanos (sin quiebres)" },
+type StatusKey = "all" | "critical" | "warning" | "healthy";
+
+const STATUS_CHIPS: Array<{
+  value: StatusKey;
+  label: string;
+  dot?: string;
+  activeBg?: string;
+}> = [
+  { value: "all", label: "Todas" },
+  {
+    value: "critical",
+    label: "Críticos",
+    dot: "bg-rose-500",
+    activeBg: "bg-rose-600 text-white border-rose-600 hover:bg-rose-600",
+  },
+  {
+    value: "warning",
+    label: "Atención",
+    dot: "bg-amber-500",
+    activeBg: "bg-amber-600 text-white border-amber-600 hover:bg-amber-600",
+  },
+  {
+    value: "healthy",
+    label: "Sanos",
+    dot: "bg-emerald-500",
+    activeBg: "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-600",
+  },
 ];
 
 export type TiendasFiltersProps = {
@@ -30,6 +52,7 @@ export type TiendasFiltersProps = {
   view: string;
   clusters: string[];
   regions: string[];
+  statusCounts: Record<StatusKey, number>;
 };
 
 export function TiendasFilters({
@@ -40,6 +63,7 @@ export function TiendasFilters({
   view,
   clusters,
   regions,
+  statusCounts,
 }: TiendasFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -124,19 +148,47 @@ export function TiendasFilters({
         </Select>
       )}
 
-      {/* Status */}
-      <Select value={status} onValueChange={(v) => updateParams({ status: v })}>
-        <SelectTrigger size="sm" className="w-[200px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {STATUS.map((s) => (
-            <SelectItem key={s.value} value={s.value}>
-              {s.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* Status chips */}
+      <div className="flex items-center gap-1 flex-wrap">
+        {STATUS_CHIPS.map((s) => {
+          const count = statusCounts[s.value] ?? 0;
+          if (s.value !== "all" && count === 0 && status !== s.value) return null;
+          const isActive = status === s.value;
+          return (
+            <button
+              key={s.value}
+              type="button"
+              onClick={() => updateParams({ status: s.value })}
+              className={cn(
+                "h-8 pl-3 pr-2 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-2 border",
+                isActive
+                  ? s.activeBg ?? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background hover:bg-muted"
+              )}
+            >
+              {s.dot && (
+                <span
+                  className={cn(
+                    "size-2 rounded-full",
+                    isActive ? "bg-white/80" : s.dot
+                  )}
+                />
+              )}
+              <span>{s.label}</span>
+              <span
+                className={cn(
+                  "inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded text-[10px] font-mono tabular-nums",
+                  isActive
+                    ? "bg-white/15 text-white"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Search */}
       <div className="relative">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { Package, Star, AlertTriangle, PieChart } from "lucide-react";
+import { Wallet, Star, AlertTriangle, PieChart } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import {
@@ -28,6 +28,8 @@ export type TopProductPoint = {
 export type ProductosHeroProps = {
   totalSkus: number;
   totalRevenue: number;
+  totalMargin: number;
+  marginPct: number;
   topConcentration: number; // % de venta que representan los top 3
   topProducts: TopProductPoint[];
   starProduct: { id: string; name: string; revenue: number } | null;
@@ -42,6 +44,8 @@ function truncate(s: string, n: number): string {
 export function ProductosHero({
   totalSkus,
   totalRevenue,
+  totalMargin,
+  marginPct,
   topConcentration,
   topProducts,
   starProduct,
@@ -131,18 +135,25 @@ export function ProductosHero({
         </div>
 
         {/* KPI side */}
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 divide-x divide-y">
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 divide-x divide-y border-t lg:border-t-0">
           <KpiBlock
-            icon={Package}
-            label="SKUs activos"
-            value={fmtNumber(totalSkus)}
-            sub="en catálogo"
+            icon={Wallet}
+            label="Margen 30d"
+            value={fmtMXN(totalMargin)}
+            sub={`${marginPct.toFixed(1)}% sobre venta · ${fmtNumber(totalSkus)} SKUs`}
+            tone={
+              marginPct >= 25 ? "success" : marginPct >= 15 ? "default" : "warning"
+            }
           />
           <KpiBlock
             icon={PieChart}
             label="Concentración top 3"
             value={`${topConcentration.toFixed(0)}%`}
-            sub="de la venta total"
+            sub={
+              topConcentration > 60
+                ? "alta dependencia · riesgo"
+                : "de la venta total"
+            }
             tone={topConcentration > 60 ? "warning" : "default"}
           />
           {starProduct ? (

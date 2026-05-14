@@ -37,8 +37,16 @@ export default async function OCPage({
     search: search || undefined,
   });
 
-  const { totals, monthly, topStores, topProducts, recent, recentFilteredCount, recentTotalCount } =
-    data;
+  const {
+    totals,
+    monthly,
+    topStores,
+    topProducts,
+    recent,
+    recentFilteredCount,
+    recentTotalCount,
+    statusCounts,
+  } = data;
 
   return (
     <div className="flex flex-col gap-6">
@@ -67,6 +75,9 @@ export default async function OCPage({
         activePOs={totals.activePOs}
         pendingValue={totals.pendingValue}
         avgLeadTimeDays={totals.avgLeadTimeDays}
+        underFillCount={totals.underFillCount}
+        unitsOrdered={totals.unitsOrdered}
+        unitsReceived={totals.unitsReceived}
       />
 
       {/* Top lists */}
@@ -74,7 +85,12 @@ export default async function OCPage({
 
       {/* Filters + Recent */}
       <div className="flex flex-col gap-2">
-        <OCFilters status={status} period={period} search={search} />
+        <OCFilters
+          status={status}
+          period={period}
+          search={search}
+          statusCounts={statusCounts}
+        />
       </div>
 
       <OCRecentTable

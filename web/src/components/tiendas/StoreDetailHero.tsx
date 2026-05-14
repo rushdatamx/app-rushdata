@@ -1,7 +1,14 @@
 "use client";
 
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { Package, AlertTriangle, ShoppingCart, DollarSign } from "lucide-react";
+import {
+  Package,
+  AlertTriangle,
+  Target,
+  Clock,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import {
@@ -10,7 +17,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { fmtMXN, fmtNumber } from "@/lib/format";
+import { fmtMXN, fmtNumber, fmtDecimal } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const chartConfig = {
   revenue: { label: "Venta", color: "hsl(var(--chart-1))" },
@@ -26,9 +34,11 @@ export type StoreDetailHeroProps = {
   skusInStock: number;
   skusActive: number;
   stockouts: number;
-  pendingSuggestions: number;
-  revenue30d: number;
   inventoryUnits: number;
+  inventoryValue: number;
+  revenue30d: number;
+  avgFillRate: number | null;
+  avgLeadTimeDays: number | null;
 };
 
 export function StoreDetailHero({
@@ -36,11 +46,22 @@ export function StoreDetailHero({
   skusInStock,
   skusActive,
   stockouts,
-  pendingSuggestions,
-  revenue30d,
   inventoryUnits,
+  inventoryValue,
+  revenue30d,
+  avgFillRate,
+  avgLeadTimeDays,
 }: StoreDetailHeroProps) {
   const skusPct = skusActive === 0 ? 0 : (skusInStock / skusActive) * 100;
+
+  // Delta semanal: comparar mitad reciente vs mitad previa de las semanas
+  let weeklyDelta: number | null = null;
+  if (weeklyRevenue.length >= 4) {
+    const half = Math.floor(weeklyRevenue.length / 2);
+    const prev = weeklyRevenue.slice(0, half).reduce((a, w) => a + w.revenue, 0);
+    const curr = weeklyRevenue.slice(half).reduce((a, w) => a + w.revenue, 0);
+    if (prev > 0) weeklyDelta = ((curr - prev) / prev) * 100;
+  }
 
   return (
     <Card className="p-0 gap-0 overflow-hidden">
@@ -59,6 +80,23 @@ export function StoreDetailHero({
               {fmtMXN(revenue30d)}
             </span>
             <span className="text-xs text-muted-foreground">últimos 30 días</span>
+            {weeklyDelta != null && (
+              <span
+                className={cn(
+                  "text-xs font-medium inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md",
+                  weeklyDelta >= 0
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-rose-100 text-rose-700"
+                )}
+              >
+                {weeklyDelta >= 0 ? (
+                  <TrendingUp className="size-3" strokeWidth={2} />
+                ) : (
+                  <TrendingDown className="size-3" strokeWidth={2} />
+                )}
+                {Math.abs(weeklyDelta).toFixed(0)}%
+              </span>
+            )}
           </div>
 
           {weeklyRevenue.length >= 2 ? (
@@ -111,12 +149,12 @@ export function StoreDetailHero({
         </div>
 
         {/* KPI side */}
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 divide-x divide-y">
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 divide-x divide-y border-t lg:border-t-0">
           <KpiBlock
             icon={Package}
             label="SKUs en stock"
             value={`${fmtNumber(skusInStock)}/${fmtNumber(skusActive)}`}
-            sub={`${skusPct.toFixed(0)}% del catálogo`}
+            sub={`${skusPct.toFixed(0)}% del catálogo · ${fmtNumber(inventoryUnits)} un`}
             tone={skusPct >= 90 ? "success" : skusPct >= 75 ? "default" : "warning"}
           />
           <KpiBlock
@@ -127,17 +165,41 @@ export function StoreDetailHero({
             tone={stockouts > 0 ? "danger" : "success"}
           />
           <KpiBlock
-            icon={ShoppingCart}
-            label="Sugeridos"
-            value={fmtNumber(pendingSuggestions)}
-            sub={pendingSuggestions > 0 ? "pendientes de enviar" : "ninguno"}
-            tone={pendingSuggestions > 0 ? "warning" : "default"}
+            icon={Target}
+            label="Fill rate histórico"
+            value={
+              avgFillRate == null ? "—" : `${(avgFillRate * 100).toFixed(0)}%`
+            }
+            sub={
+              avgFillRate == null
+                ? "sin OCs registradas"
+                : avgFillRate >= 0.95
+                ? "surtido completo"
+                : avgFillRate >= 0.9
+                ? "surtido parcial"
+                : "atención surtido"
+            }
+            tone={
+              avgFillRate == null
+                ? "default"
+                : avgFillRate >= 0.95
+                ? "success"
+                : avgFillRate >= 0.9
+                ? "warning"
+                : "danger"
+            }
           />
           <KpiBlock
-            icon={DollarSign}
-            label="Inventario"
-            value={fmtNumber(inventoryUnits)}
-            sub="unidades en piso"
+            icon={Clock}
+            label="Lead time prom."
+            value={
+              avgLeadTimeDays == null ? "—" : `${fmtDecimal(avgLeadTimeDays)} d`
+            }
+            sub={
+              avgLeadTimeDays == null
+                ? "sin fecha esperada"
+                : `${fmtMXN(inventoryValue)} en piso`
+            }
           />
         </div>
       </div>
