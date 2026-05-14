@@ -84,6 +84,8 @@ export function ProductosTable({ rows, totalStores }: ProductosTableProps) {
             { header: "Inventario un.", accessor: (r) => r.inventoryUnits },
             { header: "Un. 30d", accessor: (r) => r.units30d },
             { header: "Venta 30d MXN", accessor: (r) => r.revenue30d },
+            { header: "ASP MXN", accessor: (r) => r.asp },
+            { header: "ASP delta %WoW", accessor: (r) => r.aspDeltaPct },
             { header: "Trend %", accessor: (r) => r.trend },
           ]}
         />
@@ -93,12 +95,11 @@ export function ProductosTable({ rows, totalStores }: ProductosTableProps) {
           <TableRow className="bg-muted/30 hover:bg-muted/30">
             <TableHead className="pl-6">Producto</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead>UPC</TableHead>
             <TableHead className="text-right">Penetración</TableHead>
             <TableHead className="text-right">Quiebres</TableHead>
-            <TableHead className="text-right">Inv.</TableHead>
             <TableHead className="text-right">Un. 30d</TableHead>
             <TableHead className="text-right">Venta 30d</TableHead>
+            <TableHead className="text-right">ASP</TableHead>
             <TableHead className="text-right">Trend sem</TableHead>
             <TableHead className="pr-6">8 sem</TableHead>
           </TableRow>
@@ -145,11 +146,6 @@ export function ProductosTable({ rows, totalStores }: ProductosTableProps) {
                     {sb.label}
                   </Badge>
                 </TableCell>
-                <TableCell>
-                  <span className="font-mono tabular-nums text-[11px] text-muted-foreground">
-                    {p.upc ?? "—"}
-                  </span>
-                </TableCell>
                 <TableCell className="text-right">
                   <div className="font-mono tabular-nums">
                     {fmtNumber(p.storesWithInventory)}/{fmtNumber(totalStores)}
@@ -169,13 +165,13 @@ export function ProductosTable({ rows, totalStores }: ProductosTableProps) {
                   )}
                 </TableCell>
                 <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
-                  {fmtNumber(p.inventoryUnits)}
-                </TableCell>
-                <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
                   {fmtNumber(p.units30d)}
                 </TableCell>
                 <TableCell className="text-right font-mono tabular-nums font-semibold">
                   {fmtMXN(p.revenue30d)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <AspCell asp={p.asp} unitPrice={p.unitPrice} delta={p.aspDeltaPct} />
                 </TableCell>
                 <TableCell className="text-right">
                   <TrendCell value={trend} />
@@ -189,6 +185,42 @@ export function ProductosTable({ rows, totalStores }: ProductosTableProps) {
         </TableBody>
       </Table>
     </Card>
+  );
+}
+
+function AspCell({
+  asp,
+  unitPrice,
+  delta,
+}: {
+  asp: number | null;
+  unitPrice: number;
+  delta: number | null;
+}) {
+  if (asp == null) {
+    return <span className="text-muted-foreground/50">—</span>;
+  }
+  // Discount % vs precio de lista
+  const discount = unitPrice > 0 ? ((unitPrice - asp) / unitPrice) * 100 : 0;
+  const hasBigDiscount = discount > 5; // > 5% por debajo del precio de lista
+  const aspDropping = delta != null && delta < -2; // ASP cayó >2% w-o-w
+  return (
+    <div className="flex flex-col items-end leading-tight">
+      <span
+        className={`font-mono tabular-nums font-medium ${
+          aspDropping || hasBigDiscount ? "text-rose-700" : ""
+        }`}
+      >
+        {fmtMXN(asp)}
+      </span>
+      {(aspDropping || hasBigDiscount) && (
+        <span className="text-[10px] font-mono tabular-nums text-rose-600">
+          {hasBigDiscount && `-${discount.toFixed(0)}% vs lista`}
+          {hasBigDiscount && aspDropping && " · "}
+          {aspDropping && delta != null && `${delta.toFixed(0)}% wow`}
+        </span>
+      )}
+    </div>
   );
 }
 

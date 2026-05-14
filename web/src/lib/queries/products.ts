@@ -9,13 +9,17 @@ export type ProductRow = {
   category: string | null;
   subcategory: string | null;
   sizeGrams: number | null;
-  unitPrice: number;
+  unitPrice: number;       // precio de lista
   unitCost: number;
   storesWithInventory: number;
   storesWithStockout: number;
   inventoryUnits: number;
   units30d: number;
   revenue30d: number;
+  /** Average Selling Price del período = revenue_in_window / units_in_window. */
+  asp: number | null;
+  /** ASP delta vs semana anterior, en % (signo: + sube, - baja). */
+  aspDeltaPct: number | null;
   weekly: Array<{ weekStart: string; units: number; revenue: number }>;
 };
 
@@ -81,6 +85,23 @@ export async function loadProducts(opts: LoadProductsOptions = {}): Promise<{
 
   const rows: ProductRow[] = productsRows.map((p) => {
     const k = kpiMap.get(String(p.id));
+    const units = k ? toNum(k.units_in_window) : 0;
+    const revenue = k ? toNum(k.revenue_in_window) : 0;
+    const weekly = weeklyMap.get(String(p.id)) ?? [];
+
+    // ASP del período + delta vs semana previa (de la última semana con datos)
+    const asp = units > 0 ? revenue / units : null;
+    let aspDeltaPct: number | null = null;
+    if (weekly.length >= 2) {
+      const last = weekly[weekly.length - 1];
+      const prev = weekly[weekly.length - 2];
+      const aspLast = last.units > 0 ? last.revenue / last.units : null;
+      const aspPrev = prev.units > 0 ? prev.revenue / prev.units : null;
+      if (aspLast != null && aspPrev != null && aspPrev > 0) {
+        aspDeltaPct = ((aspLast - aspPrev) / aspPrev) * 100;
+      }
+    }
+
     return {
       id: String(p.id),
       upc: (p.upc as string) ?? null,
@@ -93,9 +114,11 @@ export async function loadProducts(opts: LoadProductsOptions = {}): Promise<{
       storesWithInventory: k ? toNum(k.stores_with_inventory) : 0,
       storesWithStockout: k ? toNum(k.stores_with_stockout) : 0,
       inventoryUnits: k ? toNum(k.inventory_units) : 0,
-      units30d: k ? toNum(k.units_in_window) : 0,
-      revenue30d: k ? toNum(k.revenue_in_window) : 0,
-      weekly: weeklyMap.get(String(p.id)) ?? [],
+      units30d: units,
+      revenue30d: revenue,
+      asp,
+      aspDeltaPct,
+      weekly,
     };
   });
 
