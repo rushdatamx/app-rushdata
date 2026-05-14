@@ -42,6 +42,7 @@ function fmtShortDate(iso: string): string {
 
 export type ForecastHeroProps = {
   series: ForecastSeriesPoint[];
+  anchor: string;
   forecast30dRevenue: number;
   forecastDeltaPct: number | null;
   yoyDeltaPct: number | null;
@@ -52,6 +53,7 @@ export type ForecastHeroProps = {
 
 export function ForecastHero({
   series,
+  anchor,
   forecast30dRevenue,
   forecastDeltaPct,
   yoyDeltaPct,
@@ -68,7 +70,7 @@ export function ForecastHero({
     yoy: p.yoy,
   }));
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = anchor;
   const accuracy = mape == null ? null : Math.max(0, 100 - mape);
 
   return (

@@ -1,13 +1,18 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/ssr";
+import { verifySession } from "@/lib/dal";
 
 /**
  * Período = ventana de fechas con etiqueta. Tres modos:
- *  - rolling: "7d" | "30d" | "90d" → últimos N días desde hoy
+ *  - rolling: "7d" | "30d" | "90d" → últimos N días desde el anchor
  *  - calendar: "cal:YYYY-MM" (mes) | "cal:YYYY" (año) | "cal:ytd" (YTD)
  *  - fiscal:   "fis:P##-YYYY" (período HEB) | "fis:YYYY" (año fiscal) | "fis:ytd"
  *
  * Default: "30d". Si la cadena no es fiscal o el período no existe, fallback a 30d.
+ *
+ * El "anchor" es la fecha de referencia desde la que se calcula rolling y se
+ * recortan futuros. Por defecto es `max(sale_date)` de la org (no `new Date()`),
+ * para que demos con datos mock estáticos no muestren ventanas vacías.
  */
 
 export type PeriodMode = "rolling" | "calendar" | "fiscal";
@@ -50,35 +55,63 @@ function todayUTC(): Date {
   return d;
 }
 
+function dateFromIso(iso: string): Date {
+  return new Date(iso + "T00:00:00Z");
+}
+
 function daysBetween(start: string, end: string): number {
   const s = new Date(start + "T00:00:00Z").getTime();
   const e = new Date(end + "T00:00:00Z").getTime();
   return Math.floor((e - s) / 86_400_000) + 1;
 }
 
-function resolveRolling(raw: string): ResolvedPeriod {
+/**
+ * Devuelve la fecha "ancla" para los rangos rolling. Es el último día con
+ * ventas para la org actual. Cacheado por sesión (no por request — vale tener
+ * el anchor estable durante un render completo).
+ *
+ * Fallback: si no hay ventas o la query falla, regresa hoy UTC.
+ */
+export async function loadAnchorDate(): Promise<string> {
+  try {
+    const { orgId } = await verifySession();
+    const db = await supabaseServer();
+    const { data } = await db
+      .from("sales")
+      .select("sale_date")
+      .eq("org_id", orgId)
+      .order("sale_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data?.sale_date) return data.sale_date as string;
+  } catch {
+    // ignored — fallback
+  }
+  return isoDay(todayUTC());
+}
+
+function resolveRolling(raw: string, anchor: string): ResolvedPeriod {
   const days = raw === "7d" ? 7 : raw === "90d" ? 90 : 30;
-  const today = todayUTC();
-  const start = new Date(today);
-  start.setUTCDate(today.getUTCDate() - (days - 1));
+  const end = dateFromIso(anchor);
+  const start = new Date(end);
+  start.setUTCDate(end.getUTCDate() - (days - 1));
   return {
     raw,
     mode: "rolling",
     start: isoDay(start),
-    end: isoDay(today),
+    end: anchor,
     days,
     label: `Últimos ${days} días`,
     shortLabel: `${days}d`,
   };
 }
 
-function resolveCalendarMonth(year: number, month: number): ResolvedPeriod {
+function resolveCalendarMonth(year: number, month: number, anchor: string): ResolvedPeriod {
   // month is 1-12
   const start = new Date(Date.UTC(year, month - 1, 1));
   const end = new Date(Date.UTC(year, month, 0)); // último día del mes
-  // Si el mes es futuro o el actual, recortar a hoy
-  const today = todayUTC();
-  const effectiveEnd = end > today ? today : end;
+  const anchorDate = dateFromIso(anchor);
+  const effectiveEnd = end > anchorDate ? anchorDate : end;
   return {
     raw: `cal:${year}-${String(month).padStart(2, "0")}`,
     mode: "calendar",
@@ -90,11 +123,11 @@ function resolveCalendarMonth(year: number, month: number): ResolvedPeriod {
   };
 }
 
-function resolveCalendarYear(year: number): ResolvedPeriod {
+function resolveCalendarYear(year: number, anchor: string): ResolvedPeriod {
   const start = new Date(Date.UTC(year, 0, 1));
   const end = new Date(Date.UTC(year, 11, 31));
-  const today = todayUTC();
-  const effectiveEnd = end > today ? today : end;
+  const anchorDate = dateFromIso(anchor);
+  const effectiveEnd = end > anchorDate ? anchorDate : end;
   return {
     raw: `cal:${year}`,
     mode: "calendar",
@@ -106,24 +139,24 @@ function resolveCalendarYear(year: number): ResolvedPeriod {
   };
 }
 
-function resolveCalendarYTD(): ResolvedPeriod {
-  const today = todayUTC();
-  const start = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
+function resolveCalendarYTD(anchor: string): ResolvedPeriod {
+  const anchorDate = dateFromIso(anchor);
+  const start = new Date(Date.UTC(anchorDate.getUTCFullYear(), 0, 1));
   return {
     raw: "cal:ytd",
     mode: "calendar",
     start: isoDay(start),
-    end: isoDay(today),
-    days: daysBetween(isoDay(start), isoDay(today)),
-    label: `${today.getUTCFullYear()} YTD`,
+    end: anchor,
+    days: daysBetween(isoDay(start), anchor),
+    label: `${anchorDate.getUTCFullYear()} YTD`,
     shortLabel: "YTD",
   };
 }
 
-function resolveFiscalPeriod(p: FiscalPeriod): ResolvedPeriod {
-  const today = todayUTC();
-  const endDate = new Date(p.end + "T00:00:00Z");
-  const effectiveEnd = endDate > today ? isoDay(today) : p.end;
+function resolveFiscalPeriod(p: FiscalPeriod, anchor: string): ResolvedPeriod {
+  const anchorDate = dateFromIso(anchor);
+  const endDate = dateFromIso(p.end);
+  const effectiveEnd = endDate > anchorDate ? anchor : p.end;
   return {
     raw: `fis:${p.code}`,
     mode: "fiscal",
@@ -135,15 +168,15 @@ function resolveFiscalPeriod(p: FiscalPeriod): ResolvedPeriod {
   };
 }
 
-function resolveFiscalYear(year: number, periods: FiscalPeriod[]): ResolvedPeriod | null {
+function resolveFiscalYear(year: number, periods: FiscalPeriod[], anchor: string): ResolvedPeriod | null {
   const sameYear = periods.filter((p) => p.year === year);
   if (sameYear.length === 0) return null;
   const sorted = [...sameYear].sort((a, b) => a.start.localeCompare(b.start));
   const start = sorted[0].start;
   const end = sorted[sorted.length - 1].end;
-  const today = todayUTC();
-  const endDate = new Date(end + "T00:00:00Z");
-  const effectiveEnd = endDate > today ? isoDay(today) : end;
+  const anchorDate = dateFromIso(anchor);
+  const endDate = dateFromIso(end);
+  const effectiveEnd = endDate > anchorDate ? anchor : end;
   return {
     raw: `fis:${year}`,
     mode: "fiscal",
@@ -155,18 +188,18 @@ function resolveFiscalYear(year: number, periods: FiscalPeriod[]): ResolvedPerio
   };
 }
 
-function resolveFiscalYTD(periods: FiscalPeriod[]): ResolvedPeriod | null {
-  const today = todayUTC();
-  const year = today.getUTCFullYear();
-  const sameYear = periods.filter((p) => p.year === year && p.start <= isoDay(today));
+function resolveFiscalYTD(periods: FiscalPeriod[], anchor: string): ResolvedPeriod | null {
+  const anchorDate = dateFromIso(anchor);
+  const year = anchorDate.getUTCFullYear();
+  const sameYear = periods.filter((p) => p.year === year && p.start <= anchor);
   if (sameYear.length === 0) return null;
   const sorted = [...sameYear].sort((a, b) => a.start.localeCompare(b.start));
   return {
     raw: "fis:ytd",
     mode: "fiscal",
     start: sorted[0].start,
-    end: isoDay(today),
-    days: daysBetween(sorted[0].start, isoDay(today)),
+    end: anchor,
+    days: daysBetween(sorted[0].start, anchor),
     label: `FY ${year} YTD (HEB)`,
     shortLabel: "FY YTD",
   };
@@ -201,52 +234,59 @@ export async function loadFiscalPeriods(chainSlug: string): Promise<FiscalPeriod
 /**
  * Resuelve un raw param de período a una ventana concreta.
  * Si el param es inválido o el calendario fiscal no aplica, hace fallback a "30d".
+ *
+ * `anchor` es la fecha de referencia (ISO YYYY-MM-DD) desde la que se calcula
+ * rolling y se recortan futuros. Default: hoy UTC. Para demos con datos mock,
+ * pasar `max(sale_date)` para que las ventanas siempre encuentren datos.
  */
 export function resolvePeriod(
   raw: string | undefined | null,
-  fiscalPeriods: FiscalPeriod[] = []
+  fiscalPeriods: FiscalPeriod[] = [],
+  anchor?: string
 ): ResolvedPeriod {
-  if (!raw) return resolveRolling("30d");
+  const a = anchor ?? isoDay(todayUTC());
+
+  if (!raw) return resolveRolling("30d", a);
 
   // Rolling
   if (raw === "7d" || raw === "30d" || raw === "90d") {
-    return resolveRolling(raw);
+    return resolveRolling(raw, a);
   }
 
   // Calendario
   if (raw.startsWith("cal:")) {
     const v = raw.slice(4);
-    if (v === "ytd") return resolveCalendarYTD();
+    if (v === "ytd") return resolveCalendarYTD(a);
     const monthMatch = v.match(/^(\d{4})-(\d{2})$/);
     if (monthMatch) {
       const y = Number(monthMatch[1]);
       const m = Number(monthMatch[2]);
-      if (m >= 1 && m <= 12) return resolveCalendarMonth(y, m);
+      if (m >= 1 && m <= 12) return resolveCalendarMonth(y, m, a);
     }
     const yearMatch = v.match(/^(\d{4})$/);
-    if (yearMatch) return resolveCalendarYear(Number(yearMatch[1]));
-    return resolveRolling("30d");
+    if (yearMatch) return resolveCalendarYear(Number(yearMatch[1]), a);
+    return resolveRolling("30d", a);
   }
 
   // Fiscal
   if (raw.startsWith("fis:")) {
-    if (fiscalPeriods.length === 0) return resolveRolling("30d");
+    if (fiscalPeriods.length === 0) return resolveRolling("30d", a);
     const v = raw.slice(4);
     if (v === "ytd") {
-      return resolveFiscalYTD(fiscalPeriods) ?? resolveRolling("30d");
+      return resolveFiscalYTD(fiscalPeriods, a) ?? resolveRolling("30d", a);
     }
     const yearMatch = v.match(/^(\d{4})$/);
     if (yearMatch) {
       return (
-        resolveFiscalYear(Number(yearMatch[1]), fiscalPeriods) ?? resolveRolling("30d")
+        resolveFiscalYear(Number(yearMatch[1]), fiscalPeriods, a) ?? resolveRolling("30d", a)
       );
     }
     const found = fiscalPeriods.find((p) => p.code === v);
-    if (found) return resolveFiscalPeriod(found);
-    return resolveRolling("30d");
+    if (found) return resolveFiscalPeriod(found, a);
+    return resolveRolling("30d", a);
   }
 
-  return resolveRolling("30d");
+  return resolveRolling("30d", a);
 }
 
 /**
@@ -260,14 +300,17 @@ export type PeriodOption = {
   shortLabel: string;
 };
 
-export function buildPeriodOptions(fiscalPeriods: FiscalPeriod[]): {
+export function buildPeriodOptions(
+  fiscalPeriods: FiscalPeriod[],
+  anchor?: string
+): {
   rolling: PeriodOption[];
   calendar: PeriodOption[];
   fiscal: PeriodOption[];
 } {
-  const today = todayUTC();
-  const year = today.getUTCFullYear();
-  const month = today.getUTCMonth() + 1;
+  const anchorDate = anchor ? dateFromIso(anchor) : todayUTC();
+  const year = anchorDate.getUTCFullYear();
+  const month = anchorDate.getUTCMonth() + 1;
 
   const rolling: PeriodOption[] = [
     { value: "7d", label: "Últimos 7 días", shortLabel: "7d" },
@@ -295,9 +338,9 @@ export function buildPeriodOptions(fiscalPeriods: FiscalPeriod[]): {
 
   const fiscal: PeriodOption[] = [];
   if (fiscalPeriods.length > 0) {
-    const todayIso = isoDay(today);
+    const anchorIso = isoDay(anchorDate);
     const past = fiscalPeriods
-      .filter((p) => p.start <= todayIso)
+      .filter((p) => p.start <= anchorIso)
       .sort((a, b) => b.start.localeCompare(a.start))
       .slice(0, 6);
     fiscal.push({ value: "fis:ytd", label: `FY ${year} YTD`, shortLabel: "FY YTD" });

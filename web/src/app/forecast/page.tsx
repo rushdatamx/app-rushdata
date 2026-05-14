@@ -2,10 +2,8 @@ import { loadForecast } from "@/lib/queries/forecast";
 import { ForecastHero } from "@/components/forecast/ForecastHero";
 import { ForecastSubKpis } from "@/components/forecast/ForecastSubKpis";
 import { ForecastTable } from "@/components/forecast/ForecastTable";
-import {
-  HorizonSelector,
-  horizonToDays,
-} from "@/components/forecast/HorizonSelector";
+import { HorizonSelector } from "@/components/forecast/HorizonSelector";
+import { horizonToDays } from "@/components/forecast/horizons";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +21,7 @@ export default async function ForecastPage({
   const historyDays = horizonToDays(horizonRaw);
 
   const data = await loadForecast({ historyDays });
-  const { series, totals, topSkus } = data;
+  const { series, totals, topSkus, anchor } = data;
 
   return (
     <div className="flex flex-col gap-6">
@@ -44,6 +42,7 @@ export default async function ForecastPage({
       {/* Hero: chart + KPIs */}
       <ForecastHero
         series={series}
+        anchor={anchor}
         forecast30dRevenue={totals.forecast30dRevenue}
         forecastDeltaPct={totals.forecastDeltaPct}
         yoyDeltaPct={totals.yoyDeltaPct}

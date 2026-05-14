@@ -2,7 +2,12 @@ import { loadReports } from "@/lib/queries/reports";
 import { PivotBuilder } from "@/components/reportes/PivotBuilder";
 import { ReportesFilters } from "@/components/reportes/ReportesFilters";
 import { PeriodSelector } from "@/components/shared/PeriodSelector";
-import { loadFiscalPeriods, resolvePeriod, buildPeriodOptions } from "@/lib/period";
+import {
+  loadFiscalPeriods,
+  resolvePeriod,
+  buildPeriodOptions,
+  loadAnchorDate,
+} from "@/lib/period";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +28,12 @@ export default async function ReportesPage({
   const cluster = sp.cluster ?? "";
   const region = sp.region ?? "";
 
-  const fiscalPeriods = await loadFiscalPeriods("heb");
-  const period = resolvePeriod(sp.period, fiscalPeriods);
-  const periodOptions = buildPeriodOptions(fiscalPeriods);
+  const [fiscalPeriods, anchor] = await Promise.all([
+    loadFiscalPeriods("heb"),
+    loadAnchorDate(),
+  ]);
+  const period = resolvePeriod(sp.period, fiscalPeriods, anchor);
+  const periodOptions = buildPeriodOptions(fiscalPeriods, anchor);
 
   const { facts, filters } = await loadReports({
     start: period.start,

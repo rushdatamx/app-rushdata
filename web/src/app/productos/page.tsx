@@ -9,7 +9,12 @@ import { ProductosGrid } from "@/components/productos/ProductosGrid";
 import { ProductosTable } from "@/components/productos/ProductosTable";
 import { PeriodSelector } from "@/components/shared/PeriodSelector";
 import { fmtNumber } from "@/lib/format";
-import { loadFiscalPeriods, resolvePeriod, buildPeriodOptions } from "@/lib/period";
+import {
+  loadFiscalPeriods,
+  resolvePeriod,
+  buildPeriodOptions,
+  loadAnchorDate,
+} from "@/lib/period";
 
 export const dynamic = "force-dynamic";
 
@@ -65,9 +70,12 @@ export default async function ProductosPage({
   const search = sp.q ?? "";
   const view = sp.view === "grid" ? "grid" : "table";
 
-  const fiscalPeriods = await loadFiscalPeriods("heb");
-  const period = resolvePeriod(sp.period, fiscalPeriods);
-  const periodOptions = buildPeriodOptions(fiscalPeriods);
+  const [fiscalPeriods, anchor] = await Promise.all([
+    loadFiscalPeriods("heb"),
+    loadAnchorDate(),
+  ]);
+  const period = resolvePeriod(sp.period, fiscalPeriods, anchor);
+  const periodOptions = buildPeriodOptions(fiscalPeriods, anchor);
 
   const [{ rows: allRows, totals }, homeStats] = await Promise.all([
     loadProducts({ start: period.start, end: period.end }),

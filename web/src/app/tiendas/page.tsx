@@ -5,7 +5,12 @@ import { TiendasGrid, storeStatus } from "@/components/tiendas/TiendasGrid";
 import { TiendasTable } from "@/components/tiendas/TiendasTable";
 import { PeriodSelector } from "@/components/shared/PeriodSelector";
 import { fmtNumber } from "@/lib/format";
-import { loadFiscalPeriods, resolvePeriod, buildPeriodOptions } from "@/lib/period";
+import {
+  loadFiscalPeriods,
+  resolvePeriod,
+  buildPeriodOptions,
+  loadAnchorDate,
+} from "@/lib/period";
 
 export const dynamic = "force-dynamic";
 
@@ -65,9 +70,12 @@ export default async function TiendasPage({
   const search = sp.q ?? "";
   const view = sp.view === "table" ? "table" : "grid";
 
-  const fiscalPeriods = await loadFiscalPeriods("heb");
-  const period = resolvePeriod(sp.period, fiscalPeriods);
-  const periodOptions = buildPeriodOptions(fiscalPeriods);
+  const [fiscalPeriods, anchor] = await Promise.all([
+    loadFiscalPeriods("heb"),
+    loadAnchorDate(),
+  ]);
+  const period = resolvePeriod(sp.period, fiscalPeriods, anchor);
+  const periodOptions = buildPeriodOptions(fiscalPeriods, anchor);
 
   const { rows: serverRows, clusters, regions, totals } = await loadStores({
     cluster: cluster || undefined,

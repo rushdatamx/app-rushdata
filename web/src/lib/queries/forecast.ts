@@ -30,6 +30,8 @@ export type ForecastSkuRow = {
 
 export type ForecastData = {
   series: ForecastSeriesPoint[];
+  /** Fecha ancla (último día con ventas). Para datos mock estáticos no es "hoy". */
+  anchor: string;
   totals: {
     last30dRevenue: number;
     last30dUnits: number;
@@ -58,10 +60,26 @@ function isoDay(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function daysFromToday(offset: number): Date {
+/**
+ * Para demos con datos mock estáticos, "hoy" = max(sale_date), no la fecha
+ * real. Esto evita que el chart se vea vacío cuando los datos no llegan al
+ * día actual.
+ */
+async function loadAnchor(orgId: string): Promise<Date> {
+  const db = await supabaseServer();
+  const { data } = await db
+    .from("sales")
+    .select("sale_date")
+    .eq("org_id", orgId)
+    .order("sale_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (data?.sale_date) {
+    const d = new Date((data.sale_date as string) + "T00:00:00Z");
+    return d;
+  }
   const d = new Date();
   d.setUTCHours(0, 0, 0, 0);
-  d.setUTCDate(d.getUTCDate() + offset);
   return d;
 }
 
@@ -89,10 +107,19 @@ export async function loadForecast(opts: LoadForecastOptions = {}): Promise<Fore
 
   const historyDays = Math.max(7, opts.historyDays ?? HISTORY_DAYS_DEFAULT);
 
+  // Anchor = max(sale_date), no hoy. Para demos estáticas.
+  const anchor = await loadAnchor(orgId);
+
+  function daysFromAnchor(offset: number): Date {
+    const d = new Date(anchor);
+    d.setUTCDate(d.getUTCDate() + offset);
+    return d;
+  }
+
   // Necesitamos histórico de al menos 14 meses para YoY, o lo que pida el chart si es mayor
   const yoyMinDays = 420;
   const fetchStartDays = Math.max(yoyMinDays, historyDays + 30);
-  const yoyStart = isoDay(daysFromToday(-fetchStartDays));
+  const yoyStart = isoDay(daysFromAnchor(-fetchStartDays));
 
   const salesRes = await db
     .from("sales")
@@ -158,7 +185,7 @@ export async function loadForecast(opts: LoadForecastOptions = {}): Promise<Fore
   function dayRange(startOffset: number, endOffset: number): string[] {
     const out: string[] = [];
     for (let i = startOffset; i <= endOffset; i++) {
-      out.push(isoDay(daysFromToday(i)));
+      out.push(isoDay(daysFromAnchor(i)));
     }
     return out;
   }
@@ -238,13 +265,13 @@ export async function loadForecast(opts: LoadForecastOptions = {}): Promise<Fore
 
   // YoY map para overlay
   function yoyValueFor(offset: number): number {
-    const yoyDate = isoDay(daysFromToday(offset - 365));
+    const yoyDate = isoDay(daysFromAnchor(offset - 365));
     return dailyTotal.get(yoyDate)?.revenue ?? 0;
   }
 
   // Histórico
   for (let off = -historyDays + 1; off <= 0; off++) {
-    const day = isoDay(daysFromToday(off));
+    const day = isoDay(daysFromAnchor(off));
     const cur = dailyTotal.get(day);
     series.push({
       date: day,
@@ -262,7 +289,7 @@ export async function loadForecast(opts: LoadForecastOptions = {}): Promise<Fore
   // 0.5 dampening — no extrapolar al 100% del trend reciente, solo medio camino
 
   for (let off = 1; off <= HORIZON_DAYS; off++) {
-    const day = isoDay(daysFromToday(off));
+    const day = isoDay(daysFromAnchor(off));
     const yoy = yoyValueFor(off);
     const forecast = Math.max(
       0,
@@ -338,7 +365,7 @@ export async function loadForecast(opts: LoadForecastOptions = {}): Promise<Fore
     // Weekly array para sparkline (últimas 8 semanas, en orden cronológico)
     const weekly = skuWeekly.map((units, idx) => {
       const weeksAgo = 7 - idx;
-      const weekStart = isoDay(daysFromToday(-7 - 7 * weeksAgo));
+      const weekStart = isoDay(daysFromAnchor(-7 - 7 * weeksAgo));
       return { weekStart, units };
     });
 
@@ -364,6 +391,7 @@ export async function loadForecast(opts: LoadForecastOptions = {}): Promise<Fore
 
   return {
     series,
+    anchor: isoDay(anchor),
     totals: {
       last30dRevenue: last30.revenue,
       last30dUnits: last30.units,

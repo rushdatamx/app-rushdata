@@ -4,7 +4,12 @@ import { OCFilters } from "@/components/oc/OCFilters";
 import { OCTopLists } from "@/components/oc/OCTopLists";
 import { OCRecentTable } from "@/components/oc/OCRecentTable";
 import { fmtNumber } from "@/lib/format";
-import { loadFiscalPeriods, resolvePeriod, buildPeriodOptions } from "@/lib/period";
+import {
+  loadFiscalPeriods,
+  resolvePeriod,
+  buildPeriodOptions,
+  loadAnchorDate,
+} from "@/lib/period";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +33,13 @@ export default async function OCPage({
 
   // El selector dual de OC permite "all" además de los modos del helper.
   // Si period === "all" no aplicamos ventana de fecha.
-  const fiscalPeriods = await loadFiscalPeriods("heb");
-  const periodOptions = buildPeriodOptions(fiscalPeriods);
-  const resolved = rawPeriod === "all" ? null : resolvePeriod(rawPeriod, fiscalPeriods);
+  const [fiscalPeriods, anchor] = await Promise.all([
+    loadFiscalPeriods("heb"),
+    loadAnchorDate(),
+  ]);
+  const periodOptions = buildPeriodOptions(fiscalPeriods, anchor);
+  const resolved =
+    rawPeriod === "all" ? null : resolvePeriod(rawPeriod, fiscalPeriods, anchor);
 
   const data = await loadPOOverview({
     status:

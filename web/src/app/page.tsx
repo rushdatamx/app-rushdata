@@ -3,7 +3,12 @@ import { loadHomeTimeSeries } from "@/lib/queries/home-timeseries";
 import { loadHomeStats } from "@/lib/queries/home-stats";
 import { loadLostSaleLedger } from "@/lib/queries/lost-sale-ledger";
 import { verifySession } from "@/lib/dal";
-import { loadFiscalPeriods, resolvePeriod, buildPeriodOptions } from "@/lib/period";
+import {
+  loadFiscalPeriods,
+  resolvePeriod,
+  buildPeriodOptions,
+  loadAnchorDate,
+} from "@/lib/period";
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { HomeFilters } from "@/components/home/HomeFilters";
 import { HeroChart } from "@/components/home/HeroChart";
@@ -36,9 +41,12 @@ export default async function Home({
   const chain = sp.chain ?? "heb";
   const currency = sp.cur === "USD" ? "USD" : "MXN";
 
-  const fiscalPeriods = await loadFiscalPeriods(chain);
-  const period = resolvePeriod(sp.period, fiscalPeriods);
-  const periodOptions = buildPeriodOptions(fiscalPeriods);
+  const [fiscalPeriods, anchor] = await Promise.all([
+    loadFiscalPeriods(chain),
+    loadAnchorDate(),
+  ]);
+  const period = resolvePeriod(sp.period, fiscalPeriods, anchor);
+  const periodOptions = buildPeriodOptions(fiscalPeriods, anchor);
 
   const [session, data, series, stats, ledger] = await Promise.all([
     verifySession(),
