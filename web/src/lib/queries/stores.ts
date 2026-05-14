@@ -27,7 +27,15 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export async function loadStores(opts: { cluster?: string; region?: string } = {}): Promise<{
+export type LoadStoresOptions = {
+  cluster?: string;
+  region?: string;
+  /** Rango de ventana de ventas. Si no se pasan, default = últimos 30d desde max(sale_date). */
+  start?: string;
+  end?: string;
+};
+
+export async function loadStores(opts: LoadStoresOptions = {}): Promise<{
   rows: StoreRow[];
   clusters: string[];
   regions: string[];
@@ -36,6 +44,10 @@ export async function loadStores(opts: { cluster?: string; region?: string } = {
   const { orgId } = await verifySession();
   const db = await supabaseServer();
 
+  const kpiParams: Record<string, unknown> = { p_org_id: orgId };
+  if (opts.start) kpiParams.p_start = opts.start;
+  if (opts.end) kpiParams.p_end = opts.end;
+
   const [storesRes, kpisRes] = await Promise.all([
     db
       .from("stores")
@@ -43,7 +55,7 @@ export async function loadStores(opts: { cluster?: string; region?: string } = {
       .eq("org_id", orgId)
       .eq("active", true)
       .order("name"),
-    db.rpc("fn_store_kpis", { p_org_id: orgId }),
+    db.rpc("fn_store_kpis", kpiParams),
   ]);
 
   if (storesRes.error) throw new Error(`stores: ${storesRes.error.message}`);
@@ -62,7 +74,7 @@ export async function loadStores(opts: { cluster?: string; region?: string } = {
     if (s.cluster) clusters.add(s.cluster as string);
     if (s.region) regions.add(s.region as string);
     const inventoryUnits = k ? toNum(k.total_inventory_units) : 0;
-    const units30d = k ? toNum(k.units_last_30d) : 0;
+    const units30d = k ? toNum(k.units_in_window) : 0;
     const dailyVel = units30d / 30;
     const avgDdi = dailyVel > 0 ? inventoryUnits / dailyVel : null;
     return {
@@ -80,7 +92,7 @@ export async function loadStores(opts: { cluster?: string; region?: string } = {
       inventoryValue: k ? toNum(k.total_inventory_value_cost) : 0,
       stockouts: k ? toNum(k.active_stockouts) : 0,
       units30d,
-      revenue30d: k ? toNum(k.revenue_last_30d) : 0,
+      revenue30d: k ? toNum(k.revenue_in_window) : 0,
       avgDdi,
     };
   });

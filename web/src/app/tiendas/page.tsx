@@ -3,7 +3,9 @@ import { TiendasHero, type ClusterPoint } from "@/components/tiendas/TiendasHero
 import { TiendasFilters } from "@/components/tiendas/TiendasFilters";
 import { TiendasGrid, storeStatus } from "@/components/tiendas/TiendasGrid";
 import { TiendasTable } from "@/components/tiendas/TiendasTable";
+import { PeriodSelector } from "@/components/shared/PeriodSelector";
 import { fmtNumber } from "@/lib/format";
+import { loadFiscalPeriods, resolvePeriod, buildPeriodOptions } from "@/lib/period";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,7 @@ type SearchParams = Promise<{
   status?: string;
   q?: string;
   view?: string;
+  period?: string;
 }>;
 
 function applyClientFilters(
@@ -62,9 +65,15 @@ export default async function TiendasPage({
   const search = sp.q ?? "";
   const view = sp.view === "table" ? "table" : "grid";
 
+  const fiscalPeriods = await loadFiscalPeriods("heb");
+  const period = resolvePeriod(sp.period, fiscalPeriods);
+  const periodOptions = buildPeriodOptions(fiscalPeriods);
+
   const { rows: serverRows, clusters, regions, totals } = await loadStores({
     cluster: cluster || undefined,
     region: region || undefined,
+    start: period.start,
+    end: period.end,
   });
 
   // Aplica filtros adicionales en memoria (status + search)
@@ -110,9 +119,18 @@ export default async function TiendasPage({
           </h1>
           <p className="text-sm text-muted-foreground mt-2">
             {fmtNumber(totals.count)} ubicaciones activas · {fmtNumber(totals.stockouts)}{" "}
-            quiebres activos en total
+            quiebres activos · ventas en{" "}
+            <span className="font-medium text-foreground">{period.label}</span>
           </p>
         </div>
+        <PeriodSelector
+          value={period.raw}
+          resolvedLabel={period.label}
+          resolvedShortLabel={period.shortLabel}
+          rolling={periodOptions.rolling}
+          calendar={periodOptions.calendar}
+          fiscal={periodOptions.fiscal}
+        />
       </div>
 
       {/* Hero */}

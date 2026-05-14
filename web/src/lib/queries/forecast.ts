@@ -3,7 +3,7 @@ import { supabaseServer } from "@/lib/supabase/ssr";
 import { verifySession } from "@/lib/dal";
 
 const HORIZON_DAYS = 30;
-const HISTORY_DAYS = 90; // mostrar 90 días de histórico
+const HISTORY_DAYS_DEFAULT = 90; // default: 90 días en el chart
 
 export type ForecastSeriesPoint = {
   date: string;
@@ -77,12 +77,22 @@ function daysFromToday(offset: number): Date {
  * vs lo que realmente pasó esos 30d. Para MVP, hacemos un MAPE más simple: comparamos
  * baseline (avg 28d antes del corte) vs real 30d siguientes.
  */
-export async function loadForecast(): Promise<ForecastData> {
+export type LoadForecastOptions = {
+  /** Horizonte histórico en días para el chart. Default 90. El modelo siempre
+   *  necesita ≥420d (YoY) — esto solo controla cuánto se muestra en el chart. */
+  historyDays?: number;
+};
+
+export async function loadForecast(opts: LoadForecastOptions = {}): Promise<ForecastData> {
   const { orgId } = await verifySession();
   const db = await supabaseServer();
 
-  // Necesitamos histórico de ~14 meses para YoY
-  const yoyStart = isoDay(daysFromToday(-420));
+  const historyDays = Math.max(7, opts.historyDays ?? HISTORY_DAYS_DEFAULT);
+
+  // Necesitamos histórico de al menos 14 meses para YoY, o lo que pida el chart si es mayor
+  const yoyMinDays = 420;
+  const fetchStartDays = Math.max(yoyMinDays, historyDays + 30);
+  const yoyStart = isoDay(daysFromToday(-fetchStartDays));
 
   const salesRes = await db
     .from("sales")
@@ -233,7 +243,7 @@ export async function loadForecast(): Promise<ForecastData> {
   }
 
   // Histórico
-  for (let off = -HISTORY_DAYS + 1; off <= 0; off++) {
+  for (let off = -historyDays + 1; off <= 0; off++) {
     const day = isoDay(daysFromToday(off));
     const cur = dailyTotal.get(day);
     series.push({

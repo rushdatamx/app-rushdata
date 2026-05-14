@@ -7,7 +7,9 @@ import {
 import { ProductosFilters } from "@/components/productos/ProductosFilters";
 import { ProductosGrid } from "@/components/productos/ProductosGrid";
 import { ProductosTable } from "@/components/productos/ProductosTable";
+import { PeriodSelector } from "@/components/shared/PeriodSelector";
 import { fmtNumber } from "@/lib/format";
+import { loadFiscalPeriods, resolvePeriod, buildPeriodOptions } from "@/lib/period";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,7 @@ type SearchParams = Promise<{
   status?: string;
   q?: string;
   view?: string;
+  period?: string;
 }>;
 
 type ProductStatus = "star" | "risk" | "dormant" | "normal";
@@ -62,8 +65,12 @@ export default async function ProductosPage({
   const search = sp.q ?? "";
   const view = sp.view === "grid" ? "grid" : "table";
 
+  const fiscalPeriods = await loadFiscalPeriods("heb");
+  const period = resolvePeriod(sp.period, fiscalPeriods);
+  const periodOptions = buildPeriodOptions(fiscalPeriods);
+
   const [{ rows: allRows, totals }, homeStats] = await Promise.all([
-    loadProducts(),
+    loadProducts({ start: period.start, end: period.end }),
     loadHomeStats(),
   ]);
   const totalStores = homeStats.activeStores;
@@ -161,9 +168,18 @@ export default async function ProductosPage({
             Productos
           </h1>
           <p className="text-sm text-muted-foreground mt-2">
-            {fmtNumber(totals.count)} SKUs activos · {fmtNumber(totalStores)} tiendas activas
+            {fmtNumber(totals.count)} SKUs activos · {fmtNumber(totalStores)} tiendas activas ·
+            ventas en <span className="font-medium text-foreground">{period.label}</span>
           </p>
         </div>
+        <PeriodSelector
+          value={period.raw}
+          resolvedLabel={period.label}
+          resolvedShortLabel={period.shortLabel}
+          rolling={periodOptions.rolling}
+          calendar={periodOptions.calendar}
+          fiscal={periodOptions.fiscal}
+        />
       </div>
 
       <ProductosHero

@@ -2,11 +2,27 @@ import { loadForecast } from "@/lib/queries/forecast";
 import { ForecastHero } from "@/components/forecast/ForecastHero";
 import { ForecastSubKpis } from "@/components/forecast/ForecastSubKpis";
 import { ForecastTable } from "@/components/forecast/ForecastTable";
+import {
+  HorizonSelector,
+  horizonToDays,
+} from "@/components/forecast/HorizonSelector";
 
 export const dynamic = "force-dynamic";
 
-export default async function ForecastPage() {
-  const data = await loadForecast();
+type SearchParams = Promise<{
+  horizon?: string;
+}>;
+
+export default async function ForecastPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const sp = await searchParams;
+  const horizonRaw = sp.horizon ?? "90d";
+  const historyDays = horizonToDays(horizonRaw);
+
+  const data = await loadForecast({ historyDays });
   const { series, totals, topSkus } = data;
 
   return (
@@ -22,6 +38,7 @@ export default async function ForecastPage() {
             anterior, y tendencia 8 semanas
           </p>
         </div>
+        <HorizonSelector value={horizonRaw} />
       </div>
 
       {/* Hero: chart + KPIs */}

@@ -235,7 +235,11 @@ A partir de 2026-05-14, el filtro de período en `/` usa el componente `<PeriodS
 
 **Variante `includeAll`:** el selector acepta `includeAll` + `defaultValue="all"` para vistas que quieran ofrecer "Todo el histórico" como default (ej. `/oc`). Cuando `period === "all"`, las queries deben omitir el filtro de fecha.
 
-**Vistas con el selector dual hoy:** `/` (default 30d), `/oc` (default "all"). **Pendiente:** `/forecast` (requiere refactor del modelo comparativo YoY/MoM relativos a período), `/productos` y `/tiendas` (requieren refactor de `fn_product_kpis` y `fn_store_kpis` SQL para aceptar rangos de fecha — se aborda en Feature 4 histórico multi-año).
+**Vistas con el selector dual hoy:** `/` (default 30d), `/oc` (default "all"), `/productos` (default 30d), `/tiendas` (default 30d).
+
+**Refactor SQL F4 (2026-05-14):** `fn_product_kpis` y `fn_store_kpis` ahora aceptan `(p_org_id, p_start, p_end)` con `p_start`/`p_end` opcionales. Cuando vienen NULL, default = últimos 30d desde `max(sale_date)` (compat). Cuando vienen ambos, las ventanas de ventas (`units_in_window`, `revenue_in_window`) respetan el rango. Las métricas de estado (inventario, stockouts activos) siguen siendo "ahora" — son snapshot, no histórico. Aplicar `sql/04_kpi_functions.sql` y luego `sql/05_kpi_functions_ranged.sql` en Supabase.
+
+**`/forecast`:** usa `<HorizonSelector>` propio (90d / 1y / 2y / 5y) en lugar del dual, porque sus ventanas comparativas (MoM, YoY) están ancladas a "hoy" y solo cambia cuánto histórico se muestra en el chart. URL param: `?horizon=90d|1y|2y|5y`.
 
 ### Tabla shadcn — convenciones
 
