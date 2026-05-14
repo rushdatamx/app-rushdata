@@ -140,7 +140,7 @@ Cada filtro escribe un search param. **Param nulo cuando es default** (no `?stat
 | `/forecast` | — (sin filtros aún; futura iteración: `horizon`, `category`) |
 | `/tiendas` | `cluster`, `region`, `status` (critical/warning/healthy), `q`, `view` (grid/table) |
 | `/productos` | `cat`, `status` (star/risk/dormant), `q`, `view` (grid/table) |
-| `/oc` | `status` (pending/partial/fulfilled/cancelled), `period` (30/90/365), `q` |
+| `/oc` | `status` (pending/partial/fulfilled/cancelled), `period` (rolling/calendario/fiscal + `all`), `q` |
 
 Patrón del client component:
 
@@ -232,7 +232,9 @@ A partir de 2026-05-14, el filtro de período en `/` usa el componente `<PeriodS
 
 **Param URL:** `?period=<raw>` donde raw es `7d|30d|90d` (rolling), `cal:YYYY-MM|cal:YYYY|cal:ytd` (calendario), `fis:P##-YYYY|fis:YYYY|fis:ytd` (fiscal). Sin param → 30d. Si el raw es inválido o el calendario fiscal no aplica → fallback a 30d.
 
-**Pendiente:** extender a `/forecast`, `/oc`, `/productos`, `/tiendas` (hoy usan defaults hardcoded).
+**Variante `includeAll`:** el selector acepta `includeAll` + `defaultValue="all"` para vistas que quieran ofrecer "Todo el histórico" como default (ej. `/oc`). Cuando `period === "all"`, las queries deben omitir el filtro de fecha.
+
+**Vistas con el selector dual hoy:** `/` (default 30d), `/oc` (default "all"). **Pendiente:** `/forecast` (requiere refactor del modelo comparativo YoY/MoM relativos a período), `/productos` y `/tiendas` (requieren refactor de `fn_product_kpis` y `fn_store_kpis` SQL para aceptar rangos de fecha — se aborda en Feature 4 histórico multi-año).
 
 ### Tabla shadcn — convenciones
 

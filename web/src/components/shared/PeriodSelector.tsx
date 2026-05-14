@@ -20,6 +20,10 @@ export type PeriodSelectorProps = {
   rolling: PeriodOption[];
   calendar: PeriodOption[];
   fiscal: PeriodOption[];
+  /** Si se incluye, agrega una opción "Todo" arriba como valor "all". */
+  includeAll?: boolean;
+  /** Valor que se considera default y se omite del URL. Default: "30d". */
+  defaultValue?: string;
   paramKey?: string;          // default "period"
   className?: string;
 };
@@ -30,6 +34,8 @@ export function PeriodSelector({
   rolling,
   calendar,
   fiscal,
+  includeAll = false,
+  defaultValue = "30d",
   paramKey = "period",
   className,
 }: PeriodSelectorProps) {
@@ -42,7 +48,7 @@ export function PeriodSelector({
   const update = useCallback(
     (next: string) => {
       const params = new URLSearchParams(sp?.toString() ?? "");
-      if (next === "30d") params.delete(paramKey);
+      if (next === defaultValue) params.delete(paramKey);
       else params.set(paramKey, next);
       const qs = params.toString();
       startTransition(() => {
@@ -50,7 +56,7 @@ export function PeriodSelector({
         setOpen(false);
       });
     },
-    [router, pathname, sp, paramKey]
+    [router, pathname, sp, paramKey, defaultValue]
   );
 
   const hasFiscal = fiscal.length > 0;
@@ -84,6 +90,21 @@ export function PeriodSelector({
             "w-[480px]"
           )}
         >
+          {includeAll && (
+            <button
+              type="button"
+              onClick={() => update("all")}
+              className={cn(
+                "w-full flex items-center justify-between h-8 px-2 mb-3 rounded text-xs font-medium transition-colors",
+                value === "all"
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted text-foreground border border-border"
+              )}
+            >
+              <span>Todo el histórico</span>
+              {value === "all" && <Check className="size-3.5 ml-2 shrink-0" strokeWidth={2} />}
+            </button>
+          )}
           <div
             className={cn(
               "grid gap-4",

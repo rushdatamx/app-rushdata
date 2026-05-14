@@ -4,6 +4,7 @@ import { OCFilters } from "@/components/oc/OCFilters";
 import { OCTopLists } from "@/components/oc/OCTopLists";
 import { OCRecentTable } from "@/components/oc/OCRecentTable";
 import { fmtNumber } from "@/lib/format";
+import { loadFiscalPeriods, resolvePeriod, buildPeriodOptions } from "@/lib/period";
 
 export const dynamic = "force-dynamic";
 
@@ -22,18 +23,22 @@ export default async function OCPage({
 }) {
   const sp = await searchParams;
   const status = sp.status ?? "all";
-  const period = sp.period ?? "all";
+  const rawPeriod = sp.period ?? "all";
   const search = sp.q ?? "";
 
-  const periodDays =
-    period === "30" ? 30 : period === "90" ? 90 : period === "365" ? 365 : undefined;
+  // El selector dual de OC permite "all" además de los modos del helper.
+  // Si period === "all" no aplicamos ventana de fecha.
+  const fiscalPeriods = await loadFiscalPeriods("heb");
+  const periodOptions = buildPeriodOptions(fiscalPeriods);
+  const resolved = rawPeriod === "all" ? null : resolvePeriod(rawPeriod, fiscalPeriods);
 
   const data = await loadPOOverview({
     status:
       status !== "all" && VALID_STATUS.has(status as POStatus)
         ? (status as POStatus)
         : undefined,
-    periodDays,
+    periodStart: resolved?.start,
+    periodEnd: resolved?.end,
     search: search || undefined,
   });
 
@@ -87,9 +92,18 @@ export default async function OCPage({
       <div className="flex flex-col gap-2">
         <OCFilters
           status={status}
-          period={period}
           search={search}
           statusCounts={statusCounts}
+          periodValue={rawPeriod}
+          periodLabel={
+            rawPeriod === "all" ? "Todo el histórico" : resolved?.label ?? "—"
+          }
+          periodShortLabel={
+            rawPeriod === "all" ? "Todo" : resolved?.shortLabel ?? "—"
+          }
+          rollingOptions={periodOptions.rolling}
+          calendarOptions={periodOptions.calendar}
+          fiscalOptions={periodOptions.fiscal}
         />
       </div>
 

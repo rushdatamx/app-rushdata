@@ -4,15 +4,9 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition, useCallback, useState, useEffect } from "react";
 import { Search, X } from "lucide-react";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { PeriodSelector, type PeriodOption } from "@/components/shared/PeriodSelector";
 import { cn } from "@/lib/utils";
 
 type StatusKey = "all" | "pending" | "partial" | "fulfilled" | "cancelled";
@@ -50,21 +44,29 @@ const STATUS_CHIPS: Array<{
   },
 ];
 
-const PERIODS = [
-  { value: "all", label: "Todo el histórico" },
-  { value: "30", label: "Últimos 30 días" },
-  { value: "90", label: "Últimos 90 días" },
-  { value: "365", label: "Último año" },
-];
-
 export type OCFiltersProps = {
   status: string;
-  period: string;
   search: string;
   statusCounts: Record<StatusKey, number>;
+  periodValue: string;
+  periodLabel: string;
+  periodShortLabel: string;
+  rollingOptions: PeriodOption[];
+  calendarOptions: PeriodOption[];
+  fiscalOptions: PeriodOption[];
 };
 
-export function OCFilters({ status, period, search, statusCounts }: OCFiltersProps) {
+export function OCFilters({
+  status,
+  search,
+  statusCounts,
+  periodValue,
+  periodLabel,
+  periodShortLabel,
+  rollingOptions,
+  calendarOptions,
+  fiscalOptions,
+}: OCFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -98,7 +100,8 @@ export function OCFilters({ status, period, search, statusCounts }: OCFiltersPro
     return () => clearTimeout(t);
   }, [searchLocal, search, updateParams]);
 
-  const hasActiveFilter = status !== "all" || period !== "all" || search !== "";
+  const hasActiveFilter =
+    status !== "all" || periodValue !== "all" || search !== "";
 
   return (
     <div
@@ -149,18 +152,16 @@ export function OCFilters({ status, period, search, statusCounts }: OCFiltersPro
         })}
       </div>
 
-      <Select value={period} onValueChange={(v) => updateParams({ period: v })}>
-        <SelectTrigger size="sm" className="w-[180px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {PERIODS.map((p) => (
-            <SelectItem key={p.value} value={p.value}>
-              {p.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <PeriodSelector
+        value={periodValue}
+        resolvedLabel={periodLabel}
+        resolvedShortLabel={periodShortLabel}
+        rolling={rollingOptions}
+        calendar={calendarOptions}
+        fiscal={fiscalOptions}
+        includeAll
+        defaultValue="all"
+      />
 
       <div className="relative">
         <Search

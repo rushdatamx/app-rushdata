@@ -70,7 +70,13 @@ export type POOverview = {
 
 export type POFilters = {
   status?: POStatus;
-  periodDays?: number;
+  /**
+   * Filtro de fecha sobre order_date de cada OC.
+   * Si no se pasan, se incluye todo el histórico.
+   * Inclusive en ambos extremos.
+   */
+  periodStart?: string;
+  periodEnd?: string;
   search?: string;
 };
 
@@ -168,16 +174,12 @@ export async function loadPOOverview(filters: POFilters = {}): Promise<POOvervie
 
   // apply filters in memory (small N) to derive `recent` view
   const searchLower = filters.search?.trim().toLowerCase() ?? "";
-  const periodCutoff =
-    filters.periodDays != null
-      ? new Date(Date.now() - filters.periodDays * 24 * 3600 * 1000)
-          .toISOString()
-          .slice(0, 10)
-      : null;
+  const { periodStart, periodEnd } = filters;
 
   const recentFiltered = allRecent.filter((r) => {
     if (filters.status && r.status !== filters.status) return false;
-    if (periodCutoff && r.orderDate && r.orderDate < periodCutoff) return false;
+    if (periodStart && r.orderDate && r.orderDate < periodStart) return false;
+    if (periodEnd && r.orderDate && r.orderDate > periodEnd) return false;
     if (searchLower) {
       const hay = `${r.poNumber ?? ""} ${r.id}`.toLowerCase();
       if (!hay.includes(searchLower)) return false;
