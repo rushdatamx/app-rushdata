@@ -26,7 +26,7 @@ Dime la letra o describe qué quieres hacer.
 - **A** → Leer `docs/ROADMAP.md`, identificar próximo paso pendiente, ejecutar
 - **B** → Seguir el **Flujo de onboarding cliente nuevo** (sección más abajo)
 - **C** → Seguir el **Flujo de agregar cadena comercial nueva** (sección más abajo)
-- **D** → Pedir qué doc revisar: `SCHEMA.md`, `FRONTEND.md`, `FORMULAS.md`, `KILLER_FEATURES.md`, `INGEST_PATTERN.md`, `PLAN.md`, `ROADMAP.md`
+- **D** → Pedir qué doc revisar: `SCHEMA.md`, `FRONTEND.md`, `FORMULAS.md`, `KILLER_FEATURES.md`, `INGEST_PATTERN.md`, `PLAN.md`, `ROADMAP.md`. Si es sobre alguna vista específica (Home, /sugeridos, /forecast, /tiendas, /productos, /oc), leer también la sección "Sesión 2026-05-13/14" de `HISTORY.md` para entender por qué quedó como está.
 - **E** → Preguntar qué área de la demo polir: visual de cards/tablas, copy de los textos, manejo de inventario negativo, conectar dominio `app.rushdata.com.mx`, etc.
 - **F** → Preguntar qué necesita
 
@@ -328,7 +328,8 @@ Cuando entren más, mantener tabla aquí + detalle en `docs/CLIENTS.md`.
 - **Fases 0-5 completas** (BD + motor + frontend + auth + deploy). Detalle en `docs/HISTORY.md`.
 - **Demo viva** en https://app-rushdata.vercel.app con magic link.
 - **Org demo:** Sazonadores Vence Real (HEB, ~106k filas mock).
-- **7 rutas activas:** `/`, `/sugeridos`, `/tiendas`, `/tiendas/[id]`, `/productos`, `/productos/[id]`, `/oc`.
+- **8 rutas activas:** `/`, `/sugeridos`, `/forecast`, `/tiendas`, `/tiendas/[id]`, `/productos`, `/productos/[id]`, `/oc`.
+- **Sesión 2026-05-13/14 (commit `24f0b10`):** densificación KAM-first de las 5 vistas + nueva `/forecast`. Chips con contador como patrón estándar, KPIs accionables linkeados, Lost Sale Ledger YTD, forecast con MAPE backtest. Ver detalle en `docs/HISTORY.md`.
 
 ### Pendientes principales
 
@@ -340,4 +341,10 @@ Cuando entren más, mantener tabla aquí + detalle en `docs/CLIENTS.md`.
 
 ---
 
-**Próximo paso al volver:** (a) Conectar dominio, (b) Polish demo, (c) Enseñar a prospecto, (d) Onboardear Delikos, (e) Adapter MERCO.
+**Próximo paso al volver:**
+- (a) Iterar mejoras sobre las vistas rediseñadas (Mario abrirá sesión nueva con eso) — ver "Pendientes / mejoras detectadas" en `docs/HISTORY.md` sesión 2026-05-13/14
+- (b) Conectar dominio `app.rushdata.com.mx`
+- (c) Validar `/forecast` con datos reales de Delikos cuando entre
+- (d) Killer features pendientes: heatmap tienda×SKU, phantom stockouts, OC sub-óptima detector, lead time real por tienda
+- (e) Enseñar a prospecto / onboardear Delikos
+- (f) Adapter MERCO

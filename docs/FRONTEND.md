@@ -2,7 +2,7 @@
 
 > **Lenguaje:** Handle/Savio data-dense, light mode, charcoal primary + emerald success. **shadcn/ui** sobre **Tailwind v4** + **Plus Jakarta Sans** (UI) + **JetBrains Mono** (números). Charts con **Recharts** vía shadcn `chart`.
 
-Última revisión: 2026-05-13 · Mantén este doc cuando agregues vistas o cambies tokens.
+Última revisión: 2026-05-14 · Mantén este doc cuando agregues vistas o cambies tokens.
 
 ---
 
@@ -137,9 +137,10 @@ Cada filtro escribe un search param. **Param nulo cuando es default** (no `?stat
 |---|---|
 | `/` | `period` (7d/30d/90d), `chain`, `cur` (MXN/USD) |
 | `/sugeridos` | `reason`, `severity` (critical), `cluster`, `q` |
+| `/forecast` | — (sin filtros aún; futura iteración: `horizon`, `category`) |
 | `/tiendas` | `cluster`, `region`, `status` (critical/warning/healthy), `q`, `view` (grid/table) |
 | `/productos` | `cat`, `status` (star/risk/dormant), `q`, `view` (grid/table) |
-| `/oc` | `status`, `period` (30/90/365), `q` |
+| `/oc` | `status` (pending/partial/fulfilled/cancelled), `period` (30/90/365), `q` |
 
 Patrón del client component:
 
@@ -161,6 +162,67 @@ const updateParams = (patch: Record<string, string | null>) => {
 ```
 
 Para search input: `useState` local + `useEffect` con `setTimeout(300)` para debounce.
+
+### Chips de filtro con contador — patrón estándar
+
+A partir de 2026-05-14, los filtros de categoría/status se renderizan como **chips con contador inline** en vez de `<Select>`. Más densos, más escaneables, el KAM ve cuántos elementos hay en cada filtro antes de clicar.
+
+**Backend:** la query devuelve `Record<FilterKey, number>` con conteos sobre el universo SIN el filtro propio (sí con otros filtros). Ejemplo en `/sugeridos`:
+
+```ts
+// loadSuggestions ignora el filtro de reason al contar reasonCounts
+const reasonCounts: ReasonCounts = {
+  all: totalAll, stockout_risk: 0, low_ddi: 0, velocity_up: 0, periodic_replenish: 0,
+};
+for (const r of allRows) {
+  if (r.reason_code in reasonCounts) reasonCounts[r.reason_code] += 1;
+}
+```
+
+**Renderizado del chip:**
+
+```tsx
+{CHIPS.map((c) => {
+  const count = counts[c.value] ?? 0;
+  // ocultar chips no-"all" sin elementos (a menos que estén activos)
+  if (c.value !== "all" && count === 0 && active !== c.value) return null;
+  const isActive = active === c.value;
+  return (
+    <button
+      key={c.value}
+      type="button"
+      onClick={() => updateParams({ [paramKey]: c.value })}
+      className={cn(
+        "h-8 pl-3 pr-2 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-2 border",
+        isActive
+          ? c.activeBg ?? "bg-primary text-primary-foreground border-primary"
+          : "bg-background hover:bg-muted"
+      )}
+    >
+      {c.dot && (
+        <span className={cn("size-2 rounded-full", isActive ? "bg-white/80" : c.dot)} />
+      )}
+      <span>{c.label}</span>
+      <span className={cn(
+        "inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded text-[10px] font-mono tabular-nums",
+        isActive ? "bg-white/15 text-white" : "bg-muted text-muted-foreground"
+      )}>
+        {count}
+      </span>
+    </button>
+  );
+})}
+```
+
+**Convención de `activeBg` por semántica:**
+- danger/crítico → `bg-rose-600 text-white border-rose-600`
+- warning/atención → `bg-amber-600 text-white border-amber-600`
+- success/sano → `bg-emerald-600 text-white border-emerald-600`
+- accent (star, etc.) → `bg-amber-600 text-white border-amber-600`
+- neutral (dormant, cancelled) → `bg-foreground text-background border-foreground`
+- "all" sin tono → `bg-primary text-primary-foreground border-primary`
+
+**Vistas que usan este patrón:** `/sugeridos` (razones), `/tiendas` (status), `/productos` (status), `/oc` (status). Los filtros que NO son enum acotado (clusters, regiones, categorías) siguen como `<Select>`.
 
 ### Tabla shadcn — convenciones
 
@@ -238,8 +300,27 @@ Estructura:
 - `90-95%` → warning (amarillo)
 - `< 90%` → danger (rojo + icon `AlertTriangle`)
 
-### Concentración top 3 SKUs
+### Concentración top 3 SKUs (productos) / top 5 tiendas
 - Umbral warning: `> 60%` (riesgo de dependencia)
+- Umbral danger: `> 80%`
+
+### Cobertura del catálogo (semanas)
+- `coverageWeeks = inventoryValue / (revenue30d / (30/7))`
+- `< 1 sem` → danger
+- `1–2 sem` → warning
+- `> 2 sem` → success
+
+### Margen 30d (productos)
+- `marginPct = sum(revenue30d - unitCost * units30d) / sum(revenue30d) * 100`
+- `>= 25%` → success
+- `15–25%` → default
+- `< 15%` → warning
+
+### MAPE / Precisión forecast
+- `accuracy = 100 - MAPE`
+- `>= 85%` → success
+- `70–85%` → warning
+- `< 70%` → danger
 
 ### Trend semanal (productos)
 - `|delta| < 2%` → estable (gray `Minus` icon)
@@ -308,6 +389,9 @@ web/src/
 │   │   ├── page.tsx
 │   │   ├── actions.ts          # server action markSuggestionsSent
 │   │   └── loading.tsx
+│   ├── forecast/
+│   │   ├── page.tsx
+│   │   └── loading.tsx
 │   ├── tiendas/
 │   │   ├── page.tsx
 │   │   ├── loading.tsx
@@ -319,11 +403,12 @@ web/src/
 ├── components/
 │   ├── ui/                     # shadcn (no editar a mano)
 │   ├── layout/                 # AppSidebar, AppTopbar
-│   ├── home/                   # HeroChart, SubKpiStrip, PriorityTable, etc.
-│   ├── sugeridos/              # SugeridosHero/Filters/Table
-│   ├── tiendas/                # TiendasHero/Filters/Grid/Table + StoreDetailHero
-│   ├── productos/              # ProductosHero/Filters/Grid/Table + ProductDetailHero + MiniSparkline
-│   ├── oc/                     # OCHero/Filters/TopLists/RecentTable
+│   ├── home/                   # HeroChart, SubKpiStrip, PriorityTable, LostSaleLedger, HomeHeader
+│   ├── sugeridos/              # SugeridosHero (severity bar)/Filters (chips)/Table
+│   ├── forecast/               # ForecastHero (ComposedChart)/SubKpis/Table
+│   ├── tiendas/                # TiendasHero/Filters (chips)/Grid/Table + StoreDetailHero
+│   ├── productos/              # ProductosHero/Filters (chips)/Grid/Table + ProductDetailHero + MiniSparkline
+│   ├── oc/                     # OCHero/Filters (chips)/TopLists/RecentTable
 │   └── shared/                 # PageSkeletons
 └── lib/
     ├── format.ts               # fmtMXN, fmtNumber, fmtDecimal, fmtPct
@@ -366,9 +451,15 @@ Pasos para agregar `/[nueva-vista]` siguiendo el patrón:
 
 ## 12 · Roadmap visual pendiente
 
-- [ ] `app.rushdata.com.mx` ya conectado ✅
+- [ ] `app.rushdata.com.mx` (DNS pendiente)
 - [ ] Dark mode (tokens ya soportan `.dark` variant)
 - [ ] Sortable columns en tablas
 - [ ] Paginación cuando los datasets crezcan (hoy todo es client-side filter sobre <300 rows)
 - [ ] Detail drawer/sheet en /sugeridos (click fila → side panel con histórico) — el patrón de shadcn `Sheet` ya está instalado
+- [ ] Toggle agrupar /sugeridos por Producto (consolidado tipo Celes) — "Total a pedir Papa 45g: 1,840 un en 12 tiendas"
 - [ ] Export CSV global (hoy solo en /sugeridos)
+- [ ] Export CSV en `/forecast` para que Mario comparta con su jefe
+- [ ] Heatmap tienda × SKU (vista nueva `/cobertura`)
+- [ ] Validar forecast contra datos reales (Delikos) — si MAPE > 30% en un SKU, mostrar warning inline
+- [ ] Filtros en `/forecast`: `horizon` (30/60/90d), `category`, `chain`
+- [ ] Tour visual / onboarding interactivo para nuevos clientes prospecto
