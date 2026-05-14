@@ -7,7 +7,9 @@ import {
 import { ProductosFilters } from "@/components/productos/ProductosFilters";
 import { ProductosGrid } from "@/components/productos/ProductosGrid";
 import { ProductosTable } from "@/components/productos/ProductosTable";
+import { ProductosDetalle } from "@/components/productos/ProductosDetalle";
 import { PeriodSelector } from "@/components/shared/PeriodSelector";
+import { SubTabs } from "@/components/shared/SubTabs";
 import { fmtNumber } from "@/lib/format";
 import {
   loadFiscalPeriods,
@@ -19,12 +21,24 @@ import {
 export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<{
+  // resumen
   cat?: string;
   status?: string;
   q?: string;
   view?: string;
   period?: string;
+  // detalle
+  tab?: string;
+  groupBy?: string;
+  productId?: string;
+  storeId?: string;
+  category?: string;
 }>;
+
+const SUB_TABS = [
+  { value: "resumen", label: "Resumen" },
+  { value: "detalle", label: "Detalle por producto" },
+];
 
 type ProductStatus = "star" | "risk" | "dormant" | "normal";
 
@@ -35,16 +49,12 @@ type EnrichedRow = ProductRow & {
 };
 
 function shortName(name: string): string {
-  // "Sabritas Original 45gr" -> "Original 45gr"
   const parts = name.split(/\s+/);
   if (parts.length > 3) return parts.slice(-3).join(" ");
   return name;
 }
 
-function statusOf(
-  p: ProductRow,
-  starRevenueCutoff: number
-): ProductStatus {
+function statusOf(p: ProductRow, starRevenueCutoff: number): ProductStatus {
   if (p.storesWithStockout > 0) return "risk";
   if (p.units30d === 0 && p.revenue30d === 0) return "dormant";
   if (p.revenue30d >= starRevenueCutoff && starRevenueCutoff > 0) return "star";
@@ -65,17 +75,60 @@ export default async function ProductosPage({
   searchParams: SearchParams;
 }) {
   const sp = await searchParams;
-  const category = sp.cat ?? "";
-  const status = sp.status ?? "all";
-  const search = sp.q ?? "";
-  const view = sp.view === "grid" ? "grid" : "table";
+  const tab = sp.tab === "detalle" ? "detalle" : "resumen";
 
   const [fiscalPeriods, anchor] = await Promise.all([
     loadFiscalPeriods("heb"),
     loadAnchorDate(),
   ]);
-  const period = resolvePeriod(sp.period, fiscalPeriods, anchor);
+  const defaultPeriodRaw = tab === "detalle" ? "12m" : undefined;
+  const period = resolvePeriod(sp.period ?? defaultPeriodRaw, fiscalPeriods, anchor);
   const periodOptions = buildPeriodOptions(fiscalPeriods, anchor);
+
+  const Header = (
+    <div className="flex items-end justify-between gap-4">
+      <div>
+        <h1 className="text-3xl lg:text-4xl font-semibold tracking-tight">
+          Productos
+        </h1>
+        <p className="text-sm text-muted-foreground mt-2">
+          {tab === "resumen"
+            ? "Resumen operativo de SKUs activos"
+            : "Detalle de venta sell-out por dimensión con comparativo año anterior"}
+        </p>
+      </div>
+      <PeriodSelector
+        value={period.raw}
+        resolvedLabel={period.label}
+        resolvedShortLabel={period.shortLabel}
+        rolling={periodOptions.rolling}
+        calendar={periodOptions.calendar}
+        fiscal={periodOptions.fiscal}
+      />
+    </div>
+  );
+
+  if (tab === "detalle") {
+    return (
+      <div className="flex flex-col gap-6">
+        {Header}
+        <SubTabs tabs={SUB_TABS} current={tab} />
+        <ProductosDetalle
+          period={{ start: period.start, end: period.end, label: period.label }}
+          groupBy={sp.groupBy}
+          productId={sp.productId}
+          storeId={sp.storeId}
+          category={sp.category}
+        />
+      </div>
+    );
+  }
+
+  // Resumen
+  const category = sp.cat ?? "";
+  const status = sp.status ?? "all";
+  const search = sp.q ?? "";
+  const view = sp.view === "grid" ? "grid" : "table";
 
   const [{ rows: allRows, totals }, homeStats] = await Promise.all([
     loadProducts({ start: period.start, end: period.end }),
@@ -83,12 +136,10 @@ export default async function ProductosPage({
   ]);
   const totalStores = homeStats.activeStores;
 
-  // Compute "estrella" cutoff = revenue del producto en posición 20% (top 20)
   const sortedByRev = [...allRows].sort((a, b) => b.revenue30d - a.revenue30d);
   const starIdx = Math.max(0, Math.floor(sortedByRev.length * 0.2) - 1);
   const starRevenueCutoff = sortedByRev[starIdx]?.revenue30d ?? 0;
 
-  // Enrich + categorías disponibles
   const categories = new Set<string>();
   const enriched: EnrichedRow[] = allRows.map((p) => {
     if (p.category) categories.add(p.category);
@@ -102,7 +153,6 @@ export default async function ProductosPage({
     };
   });
 
-  // Filtros en memoria
   const searchLower = search.trim().toLowerCase();
   const rows = enriched.filter((p) => {
     if (category && p.category !== category) return false;
@@ -114,22 +164,16 @@ export default async function ProductosPage({
     return true;
   });
 
-  // Stats agregados sobre lo filtrado
   const totalRevenue = rows.reduce((a, p) => a + p.revenue30d, 0);
-  const top3Revenue = rows
-    .slice(0, 3)
-    .reduce((a, p) => a + p.revenue30d, 0);
+  const top3Revenue = rows.slice(0, 3).reduce((a, p) => a + p.revenue30d, 0);
   const topConcentration = totalRevenue === 0 ? 0 : (top3Revenue / totalRevenue) * 100;
 
-  // Margen estimado 30d (revenue - cost*units) sobre lo filtrado
   const totalMargin = rows.reduce(
     (a, p) => a + (p.revenue30d - p.unitCost * p.units30d),
     0
   );
   const marginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
 
-  // Conteo por status sobre el universo (sin filtro de status, sí con cat/search)
-  // Para los chips: aplico cat/search igual que `rows` pero NO el filtro status
   const beforeStatus = enriched.filter((p) => {
     if (category && p.category !== category) return false;
     if (searchLower) {
@@ -170,24 +214,12 @@ export default async function ProductosPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl lg:text-4xl font-semibold tracking-tight">
-            Productos
-          </h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            {fmtNumber(totals.count)} SKUs activos · {fmtNumber(totalStores)} tiendas activas ·
-            ventas en <span className="font-medium text-foreground">{period.label}</span>
-          </p>
-        </div>
-        <PeriodSelector
-          value={period.raw}
-          resolvedLabel={period.label}
-          resolvedShortLabel={period.shortLabel}
-          rolling={periodOptions.rolling}
-          calendar={periodOptions.calendar}
-          fiscal={periodOptions.fiscal}
-        />
+      {Header}
+      <SubTabs tabs={SUB_TABS} current={tab} />
+
+      <div className="text-sm text-muted-foreground -mt-2">
+        {fmtNumber(totals.count)} SKUs activos · {fmtNumber(totalStores)} tiendas activas ·
+        ventas en <span className="font-medium text-foreground">{period.label}</span>
       </div>
 
       <ProductosHero

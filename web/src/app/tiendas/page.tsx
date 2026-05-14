@@ -3,7 +3,9 @@ import { TiendasHero, type ClusterPoint } from "@/components/tiendas/TiendasHero
 import { TiendasFilters } from "@/components/tiendas/TiendasFilters";
 import { TiendasGrid, storeStatus } from "@/components/tiendas/TiendasGrid";
 import { TiendasTable } from "@/components/tiendas/TiendasTable";
+import { TiendasDetalle } from "@/components/tiendas/TiendasDetalle";
 import { PeriodSelector } from "@/components/shared/PeriodSelector";
+import { SubTabs } from "@/components/shared/SubTabs";
 import { fmtNumber } from "@/lib/format";
 import {
   loadFiscalPeriods,
@@ -15,13 +17,24 @@ import {
 export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<{
+  // resumen
   cluster?: string;
   region?: string;
   status?: string;
   q?: string;
   view?: string;
   period?: string;
+  // detalle
+  tab?: string;
+  groupBy?: string;
+  storeId?: string;
+  productId?: string;
 }>;
+
+const SUB_TABS = [
+  { value: "resumen", label: "Resumen" },
+  { value: "detalle", label: "Detalle por tienda" },
+];
 
 function applyClientFilters(
   all: StoreRow[],
@@ -50,7 +63,6 @@ function clusterAggregates(rows: StoreRow[]): ClusterPoint[] {
   return Array.from(map.entries())
     .map(([cluster, v]) => ({ cluster, revenue: v.revenue, stores: v.stores }))
     .sort((a, b) => {
-      // numeric clusters first
       const na = Number(a.cluster);
       const nb = Number(b.cluster);
       if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
@@ -64,18 +76,62 @@ export default async function TiendasPage({
   searchParams: SearchParams;
 }) {
   const sp = await searchParams;
-  const cluster = sp.cluster ?? "";
-  const region = sp.region ?? "";
-  const status = sp.status ?? "all";
-  const search = sp.q ?? "";
-  const view = sp.view === "table" ? "table" : "grid";
+  const tab = sp.tab === "detalle" ? "detalle" : "resumen";
 
   const [fiscalPeriods, anchor] = await Promise.all([
     loadFiscalPeriods("heb"),
     loadAnchorDate(),
   ]);
-  const period = resolvePeriod(sp.period, fiscalPeriods, anchor);
+  const defaultPeriodRaw = tab === "detalle" ? "12m" : undefined;
+  const period = resolvePeriod(sp.period ?? defaultPeriodRaw, fiscalPeriods, anchor);
   const periodOptions = buildPeriodOptions(fiscalPeriods, anchor);
+
+  // Header común
+  const Header = (
+    <div className="flex items-end justify-between gap-4">
+      <div>
+        <h1 className="text-3xl lg:text-4xl font-semibold tracking-tight">
+          Tiendas
+        </h1>
+        <p className="text-sm text-muted-foreground mt-2">
+          {tab === "resumen"
+            ? "Resumen operativo de tiendas activas"
+            : "Detalle de venta sell-out por dimensión con comparativo año anterior"}
+        </p>
+      </div>
+      <PeriodSelector
+        value={period.raw}
+        resolvedLabel={period.label}
+        resolvedShortLabel={period.shortLabel}
+        rolling={periodOptions.rolling}
+        calendar={periodOptions.calendar}
+        fiscal={periodOptions.fiscal}
+      />
+    </div>
+  );
+
+  if (tab === "detalle") {
+    return (
+      <div className="flex flex-col gap-6">
+        {Header}
+        <SubTabs tabs={SUB_TABS} current={tab} />
+        <TiendasDetalle
+          period={{ start: period.start, end: period.end, label: period.label }}
+          groupBy={sp.groupBy}
+          storeId={sp.storeId}
+          productId={sp.productId}
+          region={sp.region}
+        />
+      </div>
+    );
+  }
+
+  // Resumen
+  const cluster = sp.cluster ?? "";
+  const region = sp.region ?? "";
+  const status = sp.status ?? "all";
+  const search = sp.q ?? "";
+  const view = sp.view === "table" ? "table" : "grid";
 
   const { rows: serverRows, clusters, regions, totals } = await loadStores({
     cluster: cluster || undefined,
@@ -84,10 +140,8 @@ export default async function TiendasPage({
     end: period.end,
   });
 
-  // Aplica filtros adicionales en memoria (status + search)
   const rows = applyClientFilters(serverRows, { status, search });
 
-  // Conteo por status sobre el universo filtrado por cluster/region (sin status/search)
   const statusCounts = {
     all: serverRows.length,
     critical: 0,
@@ -98,7 +152,6 @@ export default async function TiendasPage({
     statusCounts[storeStatus(s)] += 1;
   }
 
-  // Stats agregados sobre lo filtrado
   const totalRevenue = rows.reduce((a, s) => a + s.revenue30d, 0);
   const storesWithStockout = rows.filter((s) => s.stockouts > 0).length;
   const byCluster = clusterAggregates(rows);
@@ -107,41 +160,24 @@ export default async function TiendasPage({
     null
   );
   const riskStore = rows.reduce<StoreRow | null>(
-    (worst, s) =>
-      worst == null || s.stockouts > worst.stockouts ? s : worst,
+    (worst, s) => (worst == null || s.stockouts > worst.stockouts ? s : worst),
     null
   );
-
-  // Concentración top 5 tiendas (%): qué tan dependiente es la marca de pocas tiendas
   const sortedByRev = [...rows].sort((a, b) => b.revenue30d - a.revenue30d);
   const top5Revenue = sortedByRev.slice(0, 5).reduce((a, s) => a + s.revenue30d, 0);
   const top5Concentration = totalRevenue === 0 ? 0 : (top5Revenue / totalRevenue) * 100;
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl lg:text-4xl font-semibold tracking-tight">
-            Tiendas
-          </h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            {fmtNumber(totals.count)} ubicaciones activas · {fmtNumber(totals.stockouts)}{" "}
-            quiebres activos · ventas en{" "}
-            <span className="font-medium text-foreground">{period.label}</span>
-          </p>
-        </div>
-        <PeriodSelector
-          value={period.raw}
-          resolvedLabel={period.label}
-          resolvedShortLabel={period.shortLabel}
-          rolling={periodOptions.rolling}
-          calendar={periodOptions.calendar}
-          fiscal={periodOptions.fiscal}
-        />
+      {Header}
+      <SubTabs tabs={SUB_TABS} current={tab} />
+
+      <div className="text-sm text-muted-foreground -mt-2">
+        {fmtNumber(totals.count)} ubicaciones activas · {fmtNumber(totals.stockouts)}{" "}
+        quiebres activos · ventas en{" "}
+        <span className="font-medium text-foreground">{period.label}</span>
       </div>
 
-      {/* Hero */}
       <TiendasHero
         totalStores={rows.length}
         totalStockouts={rows.reduce((a, s) => a + s.stockouts, 0)}
@@ -159,7 +195,6 @@ export default async function TiendasPage({
         top5Concentration={top5Concentration}
       />
 
-      {/* Filters */}
       <div className="flex flex-col gap-2">
         <TiendasFilters
           cluster={cluster}
@@ -173,14 +208,11 @@ export default async function TiendasPage({
         />
         <div className="text-xs text-muted-foreground">
           Mostrando{" "}
-          <span className="font-medium text-foreground">
-            {fmtNumber(rows.length)}
-          </span>{" "}
+          <span className="font-medium text-foreground">{fmtNumber(rows.length)}</span>{" "}
           de {fmtNumber(serverRows.length)} tiendas
         </div>
       </div>
 
-      {/* Vista */}
       {view === "table" ? <TiendasTable rows={rows} /> : <TiendasGrid rows={rows} />}
     </div>
   );

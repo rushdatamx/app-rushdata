@@ -91,7 +91,13 @@ export async function loadAnchorDate(): Promise<string> {
 }
 
 function resolveRolling(raw: string, anchor: string): ResolvedPeriod {
-  const days = raw === "7d" ? 7 : raw === "90d" ? 90 : 30;
+  let days = 30;
+  let label = "Últimos 30 días";
+  let shortLabel = "30d";
+  if (raw === "7d") { days = 7; label = "Últimos 7 días"; shortLabel = "7d"; }
+  else if (raw === "90d") { days = 90; label = "Últimos 90 días"; shortLabel = "90d"; }
+  else if (raw === "6m") { days = 183; label = "Últimos 6 meses"; shortLabel = "6m"; }
+  else if (raw === "12m") { days = 365; label = "Últimos 12 meses"; shortLabel = "12m"; }
   const end = dateFromIso(anchor);
   const start = new Date(end);
   start.setUTCDate(end.getUTCDate() - (days - 1));
@@ -101,8 +107,8 @@ function resolveRolling(raw: string, anchor: string): ResolvedPeriod {
     start: isoDay(start),
     end: anchor,
     days,
-    label: `Últimos ${days} días`,
-    shortLabel: `${days}d`,
+    label,
+    shortLabel,
   };
 }
 
@@ -316,6 +322,8 @@ export function buildPeriodOptions(
     { value: "7d", label: "Últimos 7 días", shortLabel: "7d" },
     { value: "30d", label: "Últimos 30 días", shortLabel: "30d" },
     { value: "90d", label: "Últimos 90 días", shortLabel: "90d" },
+    { value: "6m", label: "Últimos 6 meses", shortLabel: "6m" },
+    { value: "12m", label: "Últimos 12 meses", shortLabel: "12m" },
   ];
 
   const calendar: PeriodOption[] = [];

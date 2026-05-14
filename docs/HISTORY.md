@@ -1085,3 +1085,119 @@ sql/
 - Helper `admin_create_user` (Fase 5)
 
 **Pendiente de versionar en sql/:** las migraciones de Fase 5 (auth) deberían vivir en `sql/06_auth.sql`. Por ahora se reconstruyen siguiendo el documento.
+
+---
+
+## Sesión 2026-05-14 (tarde) — Home rediseño + bugs cap 1000 + sub-tabs pivote
+
+Tras la sesión de paridad MatchData (commit `b9b7f70`), Mario abrió una sesión de polish/mejoras visuales. Se cambió radicalmente la Home, se arreglaron 3 bugs de cap de Supabase, se reajustó el mock de sell-in para sell-through realista, y se construyeron sub-tabs de detalle pivote en /tiendas y /productos.
+
+### 1. Home: de operativa-del-día → vista de negocio (sell-out YoY)
+
+Mario decidió que la Home debía mostrar **cómo va el negocio en general**, no qué hacer hoy. Lo operativo (`/sugeridos`, `/oc`, `/tiendas`, `/productos`) ya existía como vistas separadas.
+
+**Cambios:**
+- **Reemplazo total** del contenido de Home. Las viejas secciones quedaron sin uso desde Home pero **no se borraron** porque `/reporte` (PDF) y `/productos` aún importan `loadHomeData`/`loadHomeStats`/`loadLostSaleLedger`. Refactor pendiente.
+- Nueva Home muestra:
+  1. **BusinessHeader**: saludo + "datos al {anchor}" + botón "Reporte PDF".
+  2. **YoyHeroCard**: bar chart agrupado (emerald = año actual, sky = año anterior) últimos 12 meses + tabla pivote al lado con `Mes | Año actual | Año anterior | Δ%` + fila Total.
+  3. **TopProductsCard + TopStoresCard**: ranking 10 SKUs y 10 tiendas por revenue 12m con barra de progreso normalizada al max, lincados a sus detalles.
+- **Nuevo SQL**: `sql/07_sales_business_view.sql` con `fn_sales_monthly_yoy`, `fn_sales_top_products`, `fn_sales_top_stores`. Excluyen CEDIS para tops.
+- **Nueva query**: `web/src/lib/queries/home-business.ts` (3 RPC en paralelo).
+- **Componentes nuevos** en `web/src/components/home-business/`: `BusinessHeader`, `YoyHeroCard`, `TopProductsCard`, `TopStoresCard`.
+- Default visual: 12m rolling fijo (no afectado por selector de período).
+
+### 2. Bug crítico — Cap de 1000 filas en Supabase
+
+**Causa**: Supabase devuelve por default máximo 1000 filas por `select()` sin `.limit()` ni `.range()`. La tabla `sales` tiene 83,123 filas; cualquier query que la leyera cruda recibía solo las 1000 más antiguas (enero 2025), causando que las vistas que dependían de datos recientes mostraran $0.
+
+**Vistas afectadas**:
+- `/forecast` — todos los KPIs en $0, sin SKUs con venta reciente.
+- `/flow` — sell-out solo en enero 2025 (2,105 un), resto de meses en 0.
+
+**Fix**: mover el agregado a Postgres. Dos funciones nuevas en `sql/08_forecast_functions.sql`:
+- `fn_sales_daily_series(p_org_id, p_start, p_end)` → total por día.
+- `fn_sales_product_daily(p_org_id, p_start, p_end)` → por producto × día.
+
+Refactorizadas:
+- `web/src/lib/queries/forecast.ts` (sustituidos `.from("sales").select(...)` por 2 RPC, lógica del modelo intacta).
+- `web/src/lib/queries/flow.ts` (reusa `fn_sales_daily_series` para sell-out; sell-in queda igual porque OCs son pocas).
+
+**Aprendizaje**: cualquier query futura que lea `sales` cruda va a romper. Patrón a evitar; usar siempre RPC agregada.
+
+### 3. Bug — `"use client"` faltante en tablas con CSV export
+
+Síntoma idéntico al de `ForecastTable` resuelto en sesión anterior: pasar `columns: [{ accessor: (r) => ... }]` (funciones) desde Server Component a `<CsvExportButton>` (Client Component) lanza `Functions cannot be passed directly to Client Components`.
+
+**Encontradas y arregladas con `"use client"`**:
+- `web/src/components/oc/OCRecentTable.tsx`
+- `web/src/components/tiendas/TiendasTable.tsx`
+- `web/src/components/productos/ProductosTable.tsx`
+
+(Las otras tablas con CSV ya eran Client: `PivotBuilder`, `CoverageMatrix`.)
+
+**Por qué no había explotado antes**: en `ForecastTable` la query rota llevaba siempre al early-return `rows.length === 0`. En `/oc`, `/tiendas`, `/productos` el cap de 1000 filas escondía el problema en otra dimensión.
+
+### 4. Mock data — ajuste de sell-in para sell-through realista
+
+Mario notó que el sell-through 17m acumulado era 53% — irreal para una categoría seca con HEB (sano = 85-90%). El problema era sell-in sobredimensionado, no sell-out.
+
+**Solución**: factores por mes aplicados a `purchase_order_lines.units_ordered`/`units_received`, luego re-suma de `purchase_orders` totales. Resultado:
+
+| Período | Sell-through nuevo |
+|---|---|
+| Mar–Sep 2025 | 85–90% (mes saludable) |
+| Oct 2025 | 80% (carga inicio temporada) |
+| Nov 2025 | 70% (carga fuerte navideña) |
+| Dic 2025 | 60% (pico sobre-pedido — drama KAM reconocible) |
+| Ene–Feb 2026 | 85–90% (rebote Q1, HEB frena OCs) |
+| Mar–Abr 2026 | 88–92% (rotación sana) |
+| **Acumulado 17m** | **83.7%** |
+
+Se ejecutó en BD directamente, no se versionó como SQL (es ajuste de datos demo, no schema). `units_pending` y `fill_rate` son columnas generated; Postgres las recalcula solo.
+
+### 5. Sub-tabs en /tiendas y /productos — Detalle pivote con YoY
+
+Mario pidió agregar sub-pestañas: **Resumen** (vista actual) + **Detalle** (pivote configurable con filtros).
+
+**Decisiones tomadas**:
+- Sub-tabs vía URL: `?tab=resumen|detalle` (mismo patrón que el view-toggle existente, no se instaló shadcn Tabs).
+- Default = `resumen` (compat con bookmarks).
+- "Agrupar por" configurable:
+  - `/tiendas`: Tienda · Región · Mes.
+  - `/productos`: Producto · Categoría · Mes.
+- Filtros single-select (alineado con el resto del proyecto). No multi-select.
+- Período: default 12m + presets nuevos (6m, 12m) agregados al `PeriodSelector` rolling existente.
+- "Cluster" en filtros = `stores.region`.
+
+**Nuevo SQL**: `sql/09_sales_pivot_functions.sql` con `fn_sales_pivot_yoy(p_org_id, p_start, p_end, p_group_by, [filtros])`. Una sola función paramétrica devuelve `{group_key, group_label, units_current, units_previous, revenue_current, revenue_previous, units_delta_pct, revenue_delta_pct}`. Para `group_by='month'`, normaliza meses previos al mes-actual homólogo (`+12 meses`) para que filas YoY queden alineadas.
+
+**Nueva query**: `web/src/lib/queries/pivot-detail.ts` con `loadPivotDetail()` + cálculo cliente de `shareOfTotalPct`.
+
+**Componentes nuevos**:
+- `web/src/components/shared/SubTabs.tsx` — reusable, URL-driven, 2+ tabs.
+- `web/src/components/shared/DetalleTable.tsx` — tabla 8 columnas con badges Δ%, CSV export, links a `/tiendas/[id]` o `/productos/[id]` cuando aplica.
+- `web/src/components/tiendas/TiendasDetalle.tsx` (server) + `TiendasDetalleFilters.tsx` (client).
+- `web/src/components/productos/ProductosDetalle.tsx` (server) + `ProductosDetalleFilters.tsx` (client).
+
+**Modificados**:
+- `web/src/app/tiendas/page.tsx` y `web/src/app/productos/page.tsx` — orquestan `tab`, mantienen el Resumen inline (no se extrajo a componentes separados para no inflar archivos).
+- `web/src/lib/period.ts` — `resolveRolling` y `buildPeriodOptions` admiten `6m` y `12m`.
+
+**Estética**: badges emerald/rose con iconos TrendingUp/TrendingDown para Δ% (mismo lenguaje visual que el YoY de Home). Total al pie del card.
+
+### Migraciones SQL aplicadas en esta sesión
+
+| Archivo | Funciones | Aplicado |
+|---|---|---|
+| `sql/07_sales_business_view.sql` | `fn_sales_monthly_yoy`, `fn_sales_top_products`, `fn_sales_top_stores` | ✅ |
+| `sql/08_forecast_functions.sql` | `fn_sales_daily_series`, `fn_sales_product_daily` | ✅ |
+| `sql/09_sales_pivot_functions.sql` | `fn_sales_pivot_yoy` | ✅ |
+
+### Pendientes / deuda técnica detectada
+
+- [ ] **Borrar componentes y queries viejos de Home** (`components/home/*`, `lib/queries/home.ts`, `home-stats.ts`, `home-timeseries.ts`, `lost-sale-ledger.ts`) cuando `/reporte` y `/productos` dejen de usarlos. Hoy coexisten porque sigue habiendo imports.
+- [ ] **Auditar resto de queries** que lean `sales` cruda con `.from("sales").select(...)` — siguen latentes potenciales bugs de cap 1000. Vistas posiblemente afectadas: `/cobertura`, `/sugeridos`, `/reporte`, `/reportes`. Migrar a RPC agregada.
+- [ ] **Versionar el ajuste de mock sell-in** si en algún momento se necesita reproducir la BD demo desde cero. Por ahora vive como cambio aplicado directamente en Supabase.
+- [ ] **/forecast UI** sigue mostrando comentarios de "últimos 30d" — no se actualizó copy a "Datos al 30-abr" en el header, aunque ya consume max(sale_date) correctamente.
+- [ ] La nueva Home no respeta el selector global de período (período fijo 12m por diseño). Si en futuro Mario quiere que sí, refactorizar.

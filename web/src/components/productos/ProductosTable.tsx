@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { AlertTriangle, ArrowUpRight, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { Card } from "@/components/ui/card";

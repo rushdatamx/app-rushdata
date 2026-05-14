@@ -331,6 +331,12 @@ Cuando entren más, mantener tabla aquí + detalle en `docs/CLIENTS.md`.
 - **13 rutas activas:** `/`, `/sugeridos`, `/forecast`, `/flow`, `/oc`, `/tiendas`, `/tiendas/[id]`, `/productos`, `/productos/[id]`, `/cobertura`, `/reportes`, `/reporte` (no en sidebar).
 - **Sesión 2026-05-13/14 (commit `24f0b10`):** densificación KAM-first de las 5 vistas + nueva `/forecast`. Chips con contador, KPIs accionables, Lost Sale Ledger YTD, forecast con MAPE backtest.
 - **Sesión 2026-05-14 paridad MatchData (commit `b9b7f70`):** 8 features Tier 1+2+3 completadas. Selector de período dual (calendario + fiscal HEB), vista `/cobertura` (matriz tienda×SKU global), Export CSV global en 6 vistas, histórico multi-año con refactor SQL `fn_*_kpis(p_org_id, p_start, p_end)`, reporte PDF `/reporte` print-friendly, vista `/flow` sell-in vs sell-out con insight automático, columna ASP en `/productos` con detección de promos agresivas, pivot builder `/reportes` ad-hoc. **Detalle completo + arquitectura técnica Supabase ↔ Frontend en `docs/HISTORY.md`**.
+- **Sesión 2026-05-14 (tarde) — Home rediseño + bugs cap 1000 + sub-tabs pivote:**
+  - **Home** reescrita: ahora muestra venta sell-out 12m YoY (bar chart + tabla pivote) + Top 10 productos/tiendas por revenue. Lo operativo del día se quitó (vive en `/sugeridos`, `/oc`, etc.). Nuevos: `home-business/` components + `sql/07_sales_business_view.sql` (`fn_sales_monthly_yoy`, `fn_sales_top_products`, `fn_sales_top_stores`).
+  - **Bug crítico**: Supabase corta `.select()` a 1000 filas sin `.limit()`. La tabla `sales` tiene 83k filas, así que `/forecast` y `/flow` mostraban $0/casi-todo-en-cero. Fix: agregar en Postgres con `fn_sales_daily_series` y `fn_sales_product_daily` (`sql/08_forecast_functions.sql`). Refactor en `forecast.ts` y `flow.ts`.
+  - **Bug `"use client"` faltante** en 3 tablas que pasaban funciones (`accessor`) al `CsvExportButton` (Client): `OCRecentTable`, `TiendasTable`, `ProductosTable`.
+  - **Mock sell-in ajustado**: sell-through acumulado 17m pasó de 53% a 83.7% (target 85%). Diciembre 2025 queda en 60% (pico navideño = drama KAM reconocible). Aplicado directo en BD (no versionado como SQL — es ajuste de datos demo).
+  - **Sub-tabs en `/tiendas` y `/productos`**: nueva pestaña "Detalle por tienda/producto" con tabla pivote + filtros (single-select tienda/producto/región/categoría) + dropdown "Agrupar por" + comparativo YoY + CSV export. URL: `?tab=detalle`. Nuevos: `sql/09_sales_pivot_functions.sql` (`fn_sales_pivot_yoy`), `pivot-detail.ts`, `shared/SubTabs.tsx`, `shared/DetalleTable.tsx`, `*Detalle.tsx`, `*DetalleFilters.tsx`. Presets `6m` y `12m` agregados al `PeriodSelector`.
 
 ### Pendientes principales
 
@@ -343,6 +349,8 @@ Cuando entren más, mantener tabla aquí + detalle en `docs/CLIENTS.md`.
 - [ ] Histórico de stockouts (tabla nueva) para que F4 también afecte "stockouts en período X"
 - [ ] Cruce 2D (row×col) en `/reportes`
 - [ ] `/forecast` con selector dual completo (requiere refactor del modelo comparativo)
+- [ ] **Borrar componentes y queries viejos de Home** (`components/home/*`, `queries/home.ts`, `home-stats.ts`, `home-timeseries.ts`, `lost-sale-ledger.ts`) cuando `/reporte` y `/productos` dejen de usarlos
+- [ ] **Auditar queries que leen `sales` cruda** — riesgo de cap 1000 latente en `/cobertura`, `/sugeridos`, `/reporte`, `/reportes`. Migrar a RPC agregada
 
 ---
 

@@ -120,23 +120,33 @@ export async function loadForecast(opts: LoadForecastOptions = {}): Promise<Fore
   const yoyMinDays = 420;
   const fetchStartDays = Math.max(yoyMinDays, historyDays + 30);
   const yoyStart = isoDay(daysFromAnchor(-fetchStartDays));
+  const anchorIso = isoDay(anchor);
 
-  const salesRes = await db
-    .from("sales")
-    .select("sale_date,units,revenue_no_tax,product_id")
-    .eq("org_id", orgId)
-    .gte("sale_date", yoyStart);
+  // Agregaciones server-side (Supabase cap de 1000 filas hace inviable traer sales crudo)
+  const [dailyRes, productDailyRes, productsRes] = await Promise.all([
+    db.rpc("fn_sales_daily_series", {
+      p_org_id: orgId,
+      p_start: yoyStart,
+      p_end: anchorIso,
+    }),
+    db.rpc("fn_sales_product_daily", {
+      p_org_id: orgId,
+      p_start: yoyStart,
+      p_end: anchorIso,
+    }),
+    db
+      .from("products")
+      .select("id,name,category,unit_price")
+      .eq("org_id", orgId)
+      .eq("active", true),
+  ]);
 
-  if (salesRes.error) {
-    throw new Error(`loadForecast sales: ${salesRes.error.message}`);
+  if (dailyRes.error) {
+    throw new Error(`loadForecast daily: ${dailyRes.error.message}`);
   }
-
-  const productsRes = await db
-    .from("products")
-    .select("id,name,category,unit_price")
-    .eq("org_id", orgId)
-    .eq("active", true);
-
+  if (productDailyRes.error) {
+    throw new Error(`loadForecast product daily: ${productDailyRes.error.message}`);
+  }
   if (productsRes.error) {
     throw new Error(`loadForecast products: ${productsRes.error.message}`);
   }
@@ -153,32 +163,32 @@ export async function loadForecast(opts: LoadForecastOptions = {}): Promise<Fore
     });
   }
 
-  // Agregar ventas por (día, producto) y por día total
+  // Series por día (org total) y por (producto, día)
   const dailyTotal = new Map<string, { units: number; revenue: number }>();
-  const dailyByProduct = new Map<string, Map<string, number>>(); // productId -> day -> units
-
-  for (const r of (salesRes.data ?? []) as Array<{
+  for (const r of (dailyRes.data ?? []) as Array<{
     sale_date: string;
     units: unknown;
-    revenue_no_tax: unknown;
-    product_id: string;
+    revenue: unknown;
   }>) {
-    const day = r.sale_date;
-    const u = toNum(r.units);
-    const rev = toNum(r.revenue_no_tax);
-    const cur = dailyTotal.get(day) ?? { units: 0, revenue: 0 };
-    cur.units += u;
-    cur.revenue += rev;
-    dailyTotal.set(day, cur);
+    dailyTotal.set(r.sale_date, {
+      units: toNum(r.units),
+      revenue: toNum(r.revenue),
+    });
+  }
 
-    if (r.product_id) {
-      let byDay = dailyByProduct.get(r.product_id);
-      if (!byDay) {
-        byDay = new Map();
-        dailyByProduct.set(r.product_id, byDay);
-      }
-      byDay.set(day, (byDay.get(day) ?? 0) + u);
+  const dailyByProduct = new Map<string, Map<string, number>>();
+  for (const r of (productDailyRes.data ?? []) as Array<{
+    product_id: string;
+    sale_date: string;
+    units: unknown;
+  }>) {
+    if (!r.product_id) continue;
+    let byDay = dailyByProduct.get(r.product_id);
+    if (!byDay) {
+      byDay = new Map();
+      dailyByProduct.set(r.product_id, byDay);
     }
+    byDay.set(r.sale_date, toNum(r.units));
   }
 
   // Helper: rango de fechas inclusive

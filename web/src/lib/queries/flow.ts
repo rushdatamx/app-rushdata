@@ -57,13 +57,16 @@ export async function loadFlow(opts: LoadFlowOptions = {}): Promise<FlowData> {
   const { orgId } = await verifySession();
   const db = await supabaseServer();
 
+  const salesStart = opts.start ?? "1900-01-01";
+  const salesEnd = opts.end ?? "2999-12-31";
+
   const [salesRes, posRes] = await Promise.all([
-    db
-      .from("sales")
-      .select("sale_date,units,revenue_no_tax")
-      .eq("org_id", orgId)
-      .gte("sale_date", opts.start ?? "1900-01-01")
-      .lte("sale_date", opts.end ?? "2999-12-31"),
+    // Agregado server-side: el cap de 1000 filas de Supabase impide leer sales cruda.
+    db.rpc("fn_sales_daily_series", {
+      p_org_id: orgId,
+      p_start: salesStart,
+      p_end: salesEnd,
+    }),
     db
       .from("purchase_orders")
       .select("order_date,status,total_units_ordered,total_units_received,total_value")
@@ -99,11 +102,11 @@ export async function loadFlow(opts: LoadFlowOptions = {}): Promise<FlowData> {
   for (const r of (salesRes.data ?? []) as Array<{
     sale_date: string;
     units: unknown;
-    revenue_no_tax: unknown;
+    revenue: unknown;
   }>) {
     const m = get(bucket(r.sale_date));
     m.sellOutUnits += toNum(r.units);
-    m.sellOutRevenue += toNum(r.revenue_no_tax);
+    m.sellOutRevenue += toNum(r.revenue);
   }
 
   for (const r of (posRes.data ?? []) as Array<{

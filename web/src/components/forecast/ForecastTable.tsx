@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowUpRight, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import {
