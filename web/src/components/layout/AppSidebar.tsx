@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -101,9 +102,14 @@ export function AppSidebar({ orgName, userEmail, role }: AppSidebarProps) {
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <span className="font-mono text-[13px] font-semibold">R</span>
-          </div>
+          <Image
+            src="/rushdata-logo.png"
+            alt="RushData"
+            width={1200}
+            height={1200}
+            priority
+            className="size-8 shrink-0 rounded-md object-contain"
+          />
           <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
             <span className="font-semibold tracking-tight">RushData</span>
             <span className="truncate text-xs text-muted-foreground">
