@@ -102,7 +102,14 @@ export async function loadHomeBusinessData(): Promise<HomeBusinessData> {
 
   const totalCurrent = monthly.reduce((a, m) => a + m.revenueCurrent, 0);
   const totalPrevious = monthly.reduce((a, m) => a + m.revenuePrevious, 0);
-  const totalDeltaPct = pctDelta(totalCurrent, totalPrevious);
+  // Same-period YoY: solo los meses con dato en ambos lados.
+  // Evita inflar el % cuando el histórico no cubre 12m completos.
+  const samePeriod = monthly.filter(
+    (m) => m.revenueCurrent > 0 && m.revenuePrevious > 0
+  );
+  const samePeriodCurrent = samePeriod.reduce((a, m) => a + m.revenueCurrent, 0);
+  const samePeriodPrevious = samePeriod.reduce((a, m) => a + m.revenuePrevious, 0);
+  const totalDeltaPct = pctDelta(samePeriodCurrent, samePeriodPrevious);
 
   return {
     monthly,
